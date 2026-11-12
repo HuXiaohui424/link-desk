@@ -1,0 +1,15 @@
+LinkDesk Attribution Notice
+
+LinkDesk is a modified version of RustDesk:
+https://github.com/rustdesk/rustdesk
+
+Copyright in RustDesk is held by its respective copyright holders and
+contributors. The original copyright notices remain applicable to the
+portions derived from RustDesk.
+
+This distribution contains modifications made for LinkDesk on and after
+2026-11-11. LinkDesk is distributed under the GNU Affero General Public
+License, version 3. See LICENCE for the complete license terms.
+
+LinkDesk is an independent modified distribution and is not affiliated
+with or endorsed by the RustDesk project or its copyright holders.
