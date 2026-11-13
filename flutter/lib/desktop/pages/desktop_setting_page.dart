@@ -10,14 +10,11 @@ import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
-import 'package:flutter_hbb/common/widgets/keyboard_shortcuts/page_body.dart';
-import 'package:flutter_hbb/desktop/pages/desktop_keyboard_shortcuts_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/printer_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
-import 'package:flutter_hbb/models/shortcut_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -410,48 +407,27 @@ class _GeneralState extends State<_General> {
         if (!isWeb) audio(context),
         if (!isWeb) record(context),
         if (!isWeb) WaylandCard(),
-        other(),
-        if (!bind.isIncomingOnly()) keyboardShortcuts(),
+        if (!isWeb) textureRendering(),
       ],
     ).marginOnly(bottom: _kListViewBottomMargin);
   }
 
-  Widget keyboardShortcuts() {
-    // The bindings JSON (LocalConfig key `keyboard-shortcuts`) holds three
-    // flags + the bindings list: {enabled, pass_through, bindings}. When the
-    // master is off, the pass-through toggle and the Configure entry are
-    // hidden — both are meaningless without an active matcher.
-    return StatefulBuilder(builder: (context, setLocalState) {
-      final enabled = ShortcutModel.isEnabled();
-      return _Card(title: 'Keyboard shortcuts', children: [
-        _OptionCheckBox(
+  Widget textureRendering() {
+    return _Card(title: 'Other', children: [
+      Tooltip(
+        message: translate('texture_render_tip'),
+        child: _OptionCheckBox(
           context,
-          'Enable keyboard shortcuts in remote session',
-          kShortcutLocalConfigKey,
-          isServer: false,
-          optGetter: ShortcutModel.isEnabled,
-          optSetter: (_, v) async {
-            await ShortcutModel.setEnabled(v);
-            setLocalState(() {});
-          },
-        ),
-        if (enabled) ...[
-          _OptionCheckBox(
-            context,
-            'Pass-through to remote',
-            kShortcutLocalConfigKey,
-            isServer: false,
-            optGetter: ShortcutModel.isPassThrough,
-            optSetter: (_, v) async {
-              await ShortcutModel.setPassThrough(v);
-              setLocalState(() {});
-            },
-            trailing: const InfoTooltipIcon(tipKey: 'shortcut-passthrough-tip'),
+          'Use texture rendering',
+          kOptionTextureRender,
+          optGetter: bind.mainGetUseTextureRender,
+          optSetter: (key, value) async => await bind.mainSetLocalOption(
+            key: key,
+            value: value ? 'Y' : 'N',
           ),
-          _ShortcutsConfigureRow(),
-        ],
-      ]);
-    });
+        ),
+      ),
+    ]);
   }
 
   Widget theme() {
@@ -1025,12 +1001,10 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
             preventMouseKeyBuilder(
               block: locked,
               child: Column(children: [
-                permissions(context),
                 password(context),
                 _Card(title: '2FA', children: [tfa()]),
                 if (!isChangeIdDisabled())
                   _Card(title: 'ID', children: [changeId()]),
-                more(context),
               ]),
             ),
           ],
@@ -1846,7 +1820,17 @@ class _DisplayState extends State<_Display> {
       setState(() {});
     }
 
-    return _Card(title: 'Default Scroll Style', children: [
+    return _Card(title: 'Default Scroll Style', title_suffix: [
+      Tooltip(
+        message: translate('scroll_style_tip'),
+        child: Icon(
+          Icons.help_outline_outlined,
+          size: 16,
+          color:
+              Theme.of(context).textTheme.titleLarge?.color?.withOpacity(0.5),
+        ),
+      ).marginOnly(right: _kContentHMargin),
+    ], children: [
       _Radio(context,
           value: kRemoteScrollStyleAuto,
           groupValue: groupValue,
@@ -1878,40 +1862,8 @@ class _DisplayState extends State<_Display> {
   }
 
   Widget imageQuality(BuildContext context) {
-    onChanged(String value) async {
-      await bind.mainSetUserDefaultOption(
-          key: kOptionImageQuality, value: value);
-      setState(() {});
-    }
-
-    final isOptFixed = isOptionFixed(kOptionImageQuality);
-    final groupValue = bind.mainGetUserDefaultOption(key: kOptionImageQuality);
-    return _Card(title: 'Default Image Quality', children: [
-      _Radio(context,
-          value: kRemoteImageQualityBest,
-          groupValue: groupValue,
-          label: 'Good image quality',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteImageQualityBalanced,
-          groupValue: groupValue,
-          label: 'Balanced',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteImageQualityLow,
-          groupValue: groupValue,
-          label: 'Optimize reaction time',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteImageQualityCustom,
-          groupValue: groupValue,
-          label: 'Custom',
-          onChanged: isOptFixed ? null : onChanged),
-      Offstage(
-        offstage: groupValue != kRemoteImageQualityCustom,
-        child: customImageQualitySetting(),
-      )
-    ]);
+    return _Card(
+        title: 'Image Quality', children: [customImageQualitySetting()]);
   }
 
   Widget trackpadSpeed(BuildContext context) {
@@ -1926,7 +1878,7 @@ class _DisplayState extends State<_Display> {
       // But it may also be ok to take effect in the next connection.
     }
 
-    return _Card(title: 'Default trackpad speed', children: [
+    return _Card(title: 'Trackpad speed', children: [
       TrackpadSpeedWidget(
         value: curSpeed,
         onDebouncer: onDebouncer,
@@ -1935,59 +1887,8 @@ class _DisplayState extends State<_Display> {
   }
 
   Widget codec(BuildContext context) {
-    onChanged(String value) async {
-      await bind.mainSetUserDefaultOption(
-          key: kOptionCodecPreference, value: value);
-      setState(() {});
-    }
-
-    final groupValue =
-        bind.mainGetUserDefaultOption(key: kOptionCodecPreference);
-    var hwRadios = [];
-    final isOptFixed = isOptionFixed(kOptionCodecPreference);
-    try {
-      final Map codecsJson = jsonDecode(bind.mainSupportedHwdecodings());
-      final h264 = codecsJson['h264'] ?? false;
-      final h265 = codecsJson['h265'] ?? false;
-      if (h264) {
-        hwRadios.add(_Radio(context,
-            value: 'h264',
-            groupValue: groupValue,
-            label: 'H264',
-            onChanged: isOptFixed ? null : onChanged));
-      }
-      if (h265) {
-        hwRadios.add(_Radio(context,
-            value: 'h265',
-            groupValue: groupValue,
-            label: 'H265',
-            onChanged: isOptFixed ? null : onChanged));
-      }
-    } catch (e) {
-      debugPrint("failed to parse supported hwdecodings, err=$e");
-    }
     return _Card(title: 'Default Codec', children: [
-      _Radio(context,
-          value: 'auto',
-          groupValue: groupValue,
-          label: 'Auto',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: 'vp8',
-          groupValue: groupValue,
-          label: 'VP8',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: 'vp9',
-          groupValue: groupValue,
-          label: 'VP9',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: 'av1',
-          groupValue: groupValue,
-          label: 'AV1',
-          onChanged: isOptFixed ? null : onChanged),
-      ...hwRadios,
+      Text(translate('Auto')).marginOnly(left: _kContentHMargin),
     ]);
   }
 
@@ -2972,37 +2873,6 @@ class _CountDownButtonState extends State<_CountDownButton> {
             },
       child: Text(
         _isButtonDisabled ? '$_countdownSeconds s' : translate(widget.text),
-      ),
-    );
-  }
-}
-
-// Tappable row that pushes the shortcut configuration page.
-class _ShortcutsConfigureRow extends StatelessWidget {
-  // ignore: unused_element
-  const _ShortcutsConfigureRow({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => const DesktopKeyboardShortcutsPage(),
-        ));
-      },
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(translate('Configure shortcuts...')),
-          ),
-          Icon(Icons.arrow_forward_ios,
-                  size: 16, color: disabledTextColor(context, true))
-              .marginOnly(right: 4),
-        ],
-      ).marginOnly(
-        left: _kCheckBoxLeftMargin,
-        top: 6,
-        bottom: 6,
       ),
     );
   }

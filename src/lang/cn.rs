@@ -826,5 +826,6 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install-directory-not-empty-tip", "所选文件夹不为空。安装可能删除现有数据。建议选择其他文件夹。"),
         ("Request approval", "请求批准"),
         ("Forever", "永久"),
+        ("scroll_style_tip", "自动滚动会跟随鼠标位置移动画面；滚动条需要手动拖动；边缘滚动会在鼠标靠近窗口边缘时移动画面。"),
     ].iter().cloned().collect();
 }

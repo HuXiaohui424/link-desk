@@ -1051,11 +1051,7 @@ pub fn try_change_desktop() -> bool {
 }
 
 fn share_rdp() -> BOOL {
-    if get_reg("share_rdp") != "false" {
-        TRUE
-    } else {
-        FALSE
-    }
+    FALSE
 }
 
 pub fn is_share_rdp() -> bool {

@@ -1613,7 +1613,51 @@ String translate(String name) {
 // This function must be kept the same as the one in rust and sciter code.
 // rust: libs/hbb_common/src/config.rs -> option2bool()
 // sciter: Does not have the function, but it should be kept the same.
+const Map<String, bool> _fixedGeneralOtherOptions = {
+  kOptionEnableConfirmClosingTabs: true,
+  kOptionAllowMultiEdgeToolbarDock: true,
+  kOptionEnableAbr: true,
+  kOptionAllowRemoveWallpaper: true,
+  kOptionOpenNewConnInTabs: true,
+  kOptionEnablePortForwardMux: true,
+  kOptionAllowAlwaysSoftwareRender: true,
+  kOptionD3DRender: true,
+  kOptionEnableCheckUpdate: true,
+  kOptionAllowAutoUpdate: true,
+  kOptionDirectxCapture: true,
+  kOptionEnableTcpPunch: true,
+  kOptionEnableUdpPunch: true,
+  kOptionEnableIpv6Punch: true,
+  kOptionEnableWebrtc: true,
+  kOptionAllowSyncClipboardBetweenSessions: false,
+  kOptionKeepAwakeDuringOutgoingSessions: true,
+  kOptionAllowAskForNoteAtEndOfConnection: false,
+  kOptionAllowMonitorSwitchMainToolbar: true,
+  kOptionAllowMonitorSwitchMinToolbar: true,
+  kOptionEnableKeyboard: true,
+  kOptionEnableRemotePrinter: true,
+  kOptionEnableClipboard: true,
+  kOptionEnableFileTransfer: true,
+  kOptionEnableAudio: true,
+  kOptionEnableCamera: true,
+  kOptionEnableTerminal: true,
+  kOptionEnableTunnel: true,
+  kOptionEnableRemoteRestart: true,
+  kOptionEnableRecordSession: true,
+  kOptionEnableBlockInput: true,
+  kOptionEnablePrivacyMode: true,
+  kOptionAllowRemoteConfigModification: true,
+  kOptionAllowAutoDisconnect: true,
+  kOptionKeepAwakeDuringIncomingSessions: true,
+  kOptionEnableLanDiscovery: true,
+  kOptionDirectServer: false,
+  'allow-only-conn-window-open': false,
+};
+
 bool option2bool(String option, String value) {
+  final fixedValue = _fixedGeneralOtherOptions[option];
+  if (fixedValue != null) return fixedValue;
+
   bool res;
   if (option.startsWith("enable-")) {
     res = value != "N";

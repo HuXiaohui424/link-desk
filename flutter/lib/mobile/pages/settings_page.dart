@@ -1255,18 +1255,6 @@ class _DisplayPage extends StatefulWidget {
 class __DisplayPageState extends State<_DisplayPage> {
   @override
   Widget build(BuildContext context) {
-    final Map codecsJson = jsonDecode(bind.mainSupportedHwdecodings());
-    final h264 = codecsJson['h264'] ?? false;
-    final h265 = codecsJson['h265'] ?? false;
-    var codecList = [
-      _RadioEntry('Auto', 'auto'),
-      _RadioEntry('VP8', 'vp8'),
-      _RadioEntry('VP9', 'vp9'),
-      _RadioEntry('AV1', 'av1'),
-      if (h264) _RadioEntry('H264', 'h264'),
-      if (h265) _RadioEntry('H265', 'h265')
-    ];
-    RxBool showCustomImageQuality = false.obs;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -1294,42 +1282,21 @@ class __DisplayPageState extends State<_DisplayPage> {
                     },
             ),
             _getPopupDialogRadioEntry(
-              title: 'Default Image Quality',
+              title: 'Image Quality',
               list: [
-                _RadioEntry('Good image quality', kRemoteImageQualityBest),
-                _RadioEntry('Balanced', kRemoteImageQualityBalanced),
-                _RadioEntry('Optimize reaction time', kRemoteImageQualityLow),
                 _RadioEntry('Custom', kRemoteImageQualityCustom),
               ],
-              getter: () {
-                final v =
-                    bind.mainGetUserDefaultOption(key: kOptionImageQuality);
-                showCustomImageQuality.value = v == kRemoteImageQualityCustom;
-                return v;
-              },
-              asyncSetter: isOptionFixed(kOptionImageQuality)
-                  ? null
-                  : (value) async {
-                      await bind.mainSetUserDefaultOption(
-                          key: kOptionImageQuality, value: value);
-                      showCustomImageQuality.value =
-                          value == kRemoteImageQualityCustom;
-                    },
+              getter: () => kRemoteImageQualityCustom,
+              asyncSetter: (_) async {},
               tail: customImageQualitySetting(),
-              showTail: showCustomImageQuality,
+              showTail: true.obs,
               notCloseValue: kRemoteImageQualityCustom,
             ),
             _getPopupDialogRadioEntry(
               title: 'Default Codec',
-              list: codecList,
-              getter: () =>
-                  bind.mainGetUserDefaultOption(key: kOptionCodecPreference),
-              asyncSetter: isOptionFixed(kOptionCodecPreference)
-                  ? null
-                  : (value) async {
-                      await bind.mainSetUserDefaultOption(
-                          key: kOptionCodecPreference, value: value);
-                    },
+              list: [_RadioEntry('Auto', 'auto')],
+              getter: () => 'auto',
+              asyncSetter: null,
             ),
           ],
         ),
