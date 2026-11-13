@@ -20,7 +20,26 @@ class DesktopTabPage extends StatefulWidget {
   }
 }
 
-class _DesktopTabPageState extends State<DesktopTabPage> {
+class _DesktopTabPageState extends State<DesktopTabPage>
+    with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    await windowManager.setPreventClose(false);
+    await windowManager.close();
+  }
+
   @override
   Widget build(BuildContext context) {
     final page = Scaffold(
