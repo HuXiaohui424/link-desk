@@ -54,7 +54,6 @@ class DesktopSettingPage extends StatefulWidget {
         bind.mainGetBuildinOption(key: kOptionHideSecuritySetting) != 'Y')
       SettingsTabKey.safety,
     if (!bind.isIncomingOnly()) SettingsTabKey.display,
-    if (!bind.isDisableAccount()) SettingsTabKey.account,
     if (isWindows &&
         !bind.isDisableSettings() &&
         bind.mainGetBuildinOption(key: kOptionHideRemotePrinterSetting) != 'Y')
@@ -180,7 +179,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: _buildBlock(children: [
         Expanded(
           child: SingleChildScrollView(
@@ -231,7 +230,6 @@ class _GeneralState extends State<_General> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (!isWeb) service(),
         theme(),
         _Card(title: 'Language', children: [language()]),
         if (!isWeb) hwcodec(),
@@ -831,8 +829,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
               child: Column(children: [
                 password(context),
                 _Card(title: '2FA', children: [tfa()]),
-                if (!isChangeIdDisabled())
-                  _Card(title: 'ID', children: [changeId()]),
               ]),
             ),
           ]).marginOnly(bottom: _kListViewBottomMargin);
@@ -1601,7 +1597,6 @@ class _DisplayState extends State<_Display> {
       viewStyle(context),
       scrollStyle(context),
       imageQuality(context),
-      codec(context),
       if (isDesktop) trackpadSpeed(context),
       if (!isWeb) privacyModeImpl(context),
       other(context),
@@ -1616,7 +1611,7 @@ class _DisplayState extends State<_Display> {
     }
 
     final groupValue = bind.mainGetUserDefaultOption(key: kOptionViewStyle);
-    return _Card(title: 'Default View Style', children: [
+    return _Card(title: 'View Style', children: [
       _Radio(context,
           value: kRemoteViewStyleOriginal,
           groupValue: groupValue,
@@ -1646,7 +1641,7 @@ class _DisplayState extends State<_Display> {
       setState(() {});
     }
 
-    return _Card(title: 'Default Scroll Style', title_suffix: [
+    return _Card(title: 'Scroll Style', title_suffix: [
       Tooltip(
         message: translate('scroll_style_tip'),
         child: Icon(
@@ -1709,12 +1704,6 @@ class _DisplayState extends State<_Display> {
         value: curSpeed,
         onDebouncer: onDebouncer,
       ),
-    ]);
-  }
-
-  Widget codec(BuildContext context) {
-    return _Card(title: 'Default Codec', children: [
-      Text(translate('Auto')).marginOnly(left: _kContentHMargin),
     ]);
   }
 
@@ -1783,7 +1772,7 @@ class _DisplayState extends State<_Display> {
   Widget other(BuildContext context) {
     final children =
         otherDefaultSettings().map((e) => otherRow(e.$1, e.$2)).toList();
-    return _Card(title: 'Other Default Options', children: children);
+    return _Card(title: 'Other Options', children: children);
   }
 }
 

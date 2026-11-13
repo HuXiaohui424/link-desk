@@ -112,8 +112,7 @@ class _PeerTabPageState extends State<PeerTabPage>
       textBaseline: TextBaseline.ideographic,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.showTabBar)
-          Obx(() => SizedBox(
+        Obx(() => SizedBox(
               height: 32,
               child: Container(
                 padding: stateGlobal.isPortrait.isTrue
@@ -122,9 +121,12 @@ class _PeerTabPageState extends State<PeerTabPage>
                 child: selectionWrap(Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Expanded(
-                        child: visibleContextMenuListener(
-                            _createSwitchBar(context))),
+                    if (widget.showTabBar)
+                      Expanded(
+                          child: visibleContextMenuListener(
+                              _createSwitchBar(context)))
+                    else
+                      const Spacer(),
                     if (stateGlobal.isPortrait.isTrue)
                       ..._portraitRightActions(context)
                     else
@@ -243,7 +245,6 @@ class _PeerTabPageState extends State<PeerTabPage>
   }
 
   Widget _createMultiSelection() {
-    final textColor = Theme.of(context).textTheme.titleLarge?.color;
     final model = Provider.of<PeerTabModel>(context);
     return _hoverAction(
       toolTip: translate('Select'),
@@ -254,11 +255,10 @@ class _PeerTabPageState extends State<PeerTabPage>
           Navigator.pop(context);
         }
       },
-      child: SvgPicture.asset(
-        "assets/checkbox-outline.svg",
-        width: 18,
-        height: 18,
-        colorFilter: svgColor(textColor),
+      child: const Icon(
+        Icons.check_box_outlined,
+        size: 18,
+        color: Colors.black54,
       ),
     );
   }
@@ -578,11 +578,8 @@ class _PeerTabPageState extends State<PeerTabPage>
   List<Widget> _landscapeRightActions(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
     return [
-      const PeerSearchBar().marginOnly(right: 13),
-      _createRefresh(
-          index: PeerTabIndex.ab, loading: gFFI.abModel.currentAbLoading),
-      _createRefresh(
-          index: PeerTabIndex.group, loading: gFFI.groupModel.groupLoading),
+      const PeerSearchBar().marginOnly(right: 6),
+      _createVisibleRefresh(context, model),
       Offstage(
         offstage: model.currentTabCachedPeers.isEmpty,
         child: _createMultiSelection(),
@@ -601,6 +598,34 @@ class _PeerTabPageState extends State<PeerTabPage>
         child: _toggleTags(),
       ),
     ];
+  }
+
+  Widget _createVisibleRefresh(BuildContext context, PeerTabModel model) {
+    final textColor = Theme.of(context).textTheme.titleLarge?.color;
+    return _hoverAction(
+      context: context,
+      toolTip: translate('Refresh'),
+      onTap: () {
+        switch (model.currentTab) {
+          case 0:
+            bind.mainLoadRecentPeers();
+            break;
+          case 1:
+            bind.mainLoadFavPeers();
+            break;
+          case 2:
+            bind.mainDiscover();
+            break;
+          case 3:
+            gFFI.abModel.pullAb(force: ForcePullAb.listAndCurrent, quiet: false);
+            break;
+          case 4:
+            gFFI.groupModel.pull(force: true);
+            break;
+        }
+      },
+      child: Icon(Icons.refresh, size: 18, color: textColor ?? Colors.black54),
+    );
   }
 
   List<Widget> _portraitRightActions(BuildContext context) {
@@ -711,9 +736,8 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
               });
             },
             child: Icon(
-              Icons.search_rounded,
-              color: Theme.of(context).hintColor,
-            ));
+                Icons.search_rounded,
+                color: Theme.of(context).textTheme.titleLarge?.color));
   }
 
   Widget _buildSearchBar() {

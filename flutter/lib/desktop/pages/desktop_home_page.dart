@@ -87,9 +87,12 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         color: Theme.of(context).colorScheme.background,
         child: Stack(
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (_) => windowManager.startDragging(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onPanStart: (_) => windowManager.startDragging(),
@@ -109,36 +112,41 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                   final selected =
                       _selectedMainPage == null && _selectedPeerTab == null;
                   return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: ListTile(
-                    dense: true,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12),
-                    minLeadingWidth: 24,
-                    horizontalTitleGap: 8,
-                    leading: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: Center(
-                        child: Icon(Icons.home_outlined,
-                            color: Theme.of(context).colorScheme.primary),
-                      ),
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    title: Text(translate('Home')),
-                    selected: selected,
-                    selectedColor: Theme.of(context).colorScheme.primary,
-                    onTap: () => setState(() {
-                      _selectedMainPage = null;
-                      _selectedPeerTab = null;
-                    }),
-                  ),
-                );
+                    child: ListTile(
+                      dense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12),
+                      minLeadingWidth: 24,
+                      horizontalTitleGap: 8,
+                      leading: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Center(
+                          child: Icon(Icons.home_outlined,
+                            color: selected
+                                ? Theme.of(context).colorScheme.primary
+                                : textColor?.withOpacity(0.65)),
+                        ),
+                      ),
+                      title: Text(translate('Home')),
+                      selected: selected,
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      onTap: () => setState(() {
+                        _selectedMainPage = null;
+                        _selectedPeerTab = null;
+                      }),
+                    ),
+                  );
                 }),
                 ChangeNotifierProvider.value(
                   value: gFFI.peerTabModel,
@@ -160,15 +168,21 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                           ),
                           child: ListTile(
                             dense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12),
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 12),
                             minLeadingWidth: 24,
                             horizontalTitleGap: 8,
                             leading: SizedBox(
                               width: 24,
                               height: 24,
                               child: Center(
-                                  child: Icon(model.tabIcon(index), size: 24)),
+                                  child: Icon(
+                                model.tabIcon(index),
+                                size: 24,
+                                color: selected
+                                    ? Theme.of(context).colorScheme.primary
+                                    : textColor?.withOpacity(0.65),
+                              )),
                             ),
                             title: Text(model.tabTooltip(index)),
                             selected: selected,
@@ -177,8 +191,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                             onTap: () {
                               model.setCurrentTab(index);
                               bind.setLocalFlutterOption(
-                                  k: kOptionPeerTabIndex,
-                                  v: index.toString());
+                                  k: kOptionPeerTabIndex, v: index.toString());
                               setState(() {
                                 _selectedMainPage = null;
                                 _selectedPeerTab = index;
@@ -196,7 +209,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                     margin: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
                     decoration: BoxDecoration(
                       color: _selectedMainPage != null
-                          ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
+                          ? Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.12)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(6),
                     ),
@@ -225,7 +241,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                       }),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -236,65 +253,93 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   buildRightPane(BuildContext context) {
     if (_selectedMainPage != null) {
       return Container(
-        color: Colors.white,
-        child: DesktopSettingPage(initialTabkey: _selectedMainPage!),
+        color: Theme.of(context).colorScheme.surface,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: DesktopSettingPage(initialTabkey: _selectedMainPage!),
+        ),
       );
     }
     if (_selectedPeerTab != null) {
       return Container(
-        color: Colors.white,
-        child: ChangeNotifierProvider.value(
-          value: gFFI.peerTabModel,
-          child: const PeerTabPage(showTabBar: false),
+        color: Theme.of(context).colorScheme.surface,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: ChangeNotifierProvider.value(
+            value: gFFI.peerTabModel,
+            child: const PeerTabPage(showTabBar: false),
+          ),
         ),
       );
     }
     return Container(
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: (_) => windowManager.startDragging(),
-            child: const SizedBox(height: 30),
-          ),
-          Flexible(
-            flex: 0,
-            child: SingleChildScrollView(
-              controller: _leftPaneScrollController,
+      color: Theme.of(context).colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: SizedBox(
+              width: double.infinity,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (bind.isCustomClient()) loadPowered(context),
-                  buildTip(context),
-                  if (!bind.isOutgoingOnly())
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: buildIDBoard(context)),
-                        Expanded(child: buildPasswordBoard(context)),
-                      ],
-                    ),
-                  SizedBox(
-                    height: 1,
-                    child: Container(color: Theme.of(context).dividerColor),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanStart: (_) => windowManager.startDragging(),
+                    child: const SizedBox(height: 30),
                   ),
+                  Expanded(
+                    child: Align(
+                      alignment: const Alignment(0, 0.35),
+                      child: SingleChildScrollView(
+                        controller: _leftPaneScrollController,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (bind.isCustomClient()) loadPowered(context),
+                            buildTip(context),
+                            if (!bind.isOutgoingOnly())
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: buildIDBoard(context)),
+                                  Expanded(child: buildPasswordBoard(context)),
+                                ],
+                              ),
+                            SizedBox(
+                              height: 1,
+                              child: Container(
+                                  color: Theme.of(context).dividerColor),
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              height: 300,
+                              child: const ConnectionPage(
+                                showOnlineStatus: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (!bind.isOutgoingOnly())
+                    OnlineStatusWidget(
+                      onSvcStatusChanged: bind.isIncomingOnly()
+                          ? () {
+                              if (isInHomePage()) {
+                                Future.delayed(Duration(milliseconds: 300),
+                                    _updateWindowSize);
+                              }
+                            }
+                          : null,
+                    ),
                 ],
               ),
             ),
           ),
-          Expanded(child: ConnectionPage()),
-          if (bind.isIncomingOnly())
-            OnlineStatusWidget(
-              onSvcStatusChanged: () {
-                if (isInHomePage()) {
-                  Future.delayed(
-                      Duration(milliseconds: 300), _updateWindowSize);
-                }
-              },
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -484,14 +529,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     final isOutgoingOnly = bind.isOutgoingOnly();
     return Padding(
       padding:
-          const EdgeInsets.only(left: 20.0, right: 16, top: 16.0, bottom: 5),
+          const EdgeInsets.only(left: 27.0, right: 16, top: 16.0, bottom: 5),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           if (!isOutgoingOnly)
             Expanded(
               child: Text(
-                "允许控制本设备",
+                "控制本设备",
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
