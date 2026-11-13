@@ -310,7 +310,7 @@ ensure_bridge() {
     exit 1
   fi
 
-  archive="$(mktemp "${TMPDIR:-/tmp}/rustdesk-bridge.XXXXXX.zip")"
+  archive="$(mktemp "${TMPDIR:-/tmp}/rustdesk-bridge.XXXXXX")"
   if ! gh api "repos/rustdesk/rustdesk/actions/artifacts/$artifact_id/zip" > "$archive" 2>/dev/null; then
     gh api "repos/{owner}/{repo}/actions/artifacts/$artifact_id/zip" > "$archive"
   fi
