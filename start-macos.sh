@@ -283,11 +283,38 @@ ensure_bridge() {
     echo "缺少 Flutter/Rust 桥接文件，且本机没有 gh，无法从 CI 下载。" >&2
     exit 1
   fi
-  log "从当前提交的 CI 下载 bridge-artifact"
-  local sha run_id
+  local artifact="bridge-artifact"
+  if [[ "$HOST_ARCH" == "arm64" ]]; then
+    artifact="bridge-artifact-flutter-3.44"
+  fi
+  log "下载 Flutter/Rust 桥接文件 ($artifact)"
+  local sha artifact_id artifact_sha local_bridge_sha archive
   sha="$(git -C "$ROOT" rev-parse HEAD)"
-  run_id="$(gh run list --commit "$sha" --limit 1 --json databaseId --jq '.[0].databaseId')"
-  gh run download "$run_id" -n bridge-artifact -D "$ROOT"
+  artifact_id="$(gh api "repos/{owner}/{repo}/actions/artifacts?name=$artifact&per_page=100" \
+    --jq ".artifacts[] | select(.expired == false and .workflow_run.head_sha == \"$sha\") | .id" | head -n 1)"
+
+  if [[ -z "$artifact_id" ]]; then
+    local_bridge_sha="$(git -C "$ROOT" hash-object src/flutter_ffi.rs)"
+    while read -r artifact_id artifact_sha; do
+      [[ -n "$artifact_id" && -n "$artifact_sha" ]] || continue
+      if [[ "$(gh api "repos/rustdesk/rustdesk/contents/src/flutter_ffi.rs?ref=$artifact_sha" --jq '.sha' 2>/dev/null || true)" == "$local_bridge_sha" ]]; then
+        break
+      fi
+      artifact_id=""
+    done < <(gh api "repos/rustdesk/rustdesk/actions/artifacts?name=$artifact&per_page=100" \
+      --jq '.artifacts[] | select(.expired == false) | [.id, .workflow_run.head_sha] | @tsv')
+  fi
+
+  if [[ -z "$artifact_id" ]]; then
+    echo "当前源码没有可用的 $artifact，无法准备 Flutter/Rust 桥接文件。" >&2
+    exit 1
+  fi
+
+  archive="$(mktemp "${TMPDIR:-/tmp}/rustdesk-bridge.XXXXXX.zip")"
+  if ! gh api "repos/rustdesk/rustdesk/actions/artifacts/$artifact_id/zip" > "$archive" 2>/dev/null; then
+    gh api "repos/{owner}/{repo}/actions/artifacts/$artifact_id/zip" > "$archive"
+  fi
+  unzip -oq "$archive" -d "$ROOT"
 }
 
 sync_submodules() {
@@ -295,6 +322,17 @@ sync_submodules() {
     log "初始化 Git 子模块"
     git -C "$ROOT" submodule update --init --recursive
   fi
+}
+
+ensure_macos_resources() {
+  local tray_icon="$ROOT/res/mac-tray-dark-x2.png"
+  if [[ -s "$tray_icon" ]]; then
+    return
+  fi
+  log "补齐 macOS 托盘图标"
+  curl -fL --retry 3 \
+    "https://raw.githubusercontent.com/rustdesk/rustdesk/b84058e07639006598f5fb624dad9dcd7b8cf96d/res/mac-tray-dark-x2.png" \
+    -o "$tray_icon"
 }
 
 clear_stale_outputs() {
@@ -326,6 +364,7 @@ embed_pod_frameworks() {
 
 require_xcode
 sync_submodules
+ensure_macos_resources
 ensure_rust
 ensure_flutter
 ensure_nasm
