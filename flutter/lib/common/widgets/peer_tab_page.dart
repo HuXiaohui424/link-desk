@@ -27,7 +27,9 @@ import '../../common.dart';
 import '../../models/platform_model.dart';
 
 class PeerTabPage extends StatefulWidget {
-  const PeerTabPage({Key? key}) : super(key: key);
+  final bool showTabBar;
+
+  const PeerTabPage({Key? key, this.showTabBar = true}) : super(key: key);
   @override
   State<PeerTabPage> createState() => _PeerTabPageState();
 }
@@ -110,7 +112,8 @@ class _PeerTabPageState extends State<PeerTabPage>
       textBaseline: TextBaseline.ideographic,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Obx(() => SizedBox(
+        if (widget.showTabBar)
+          Obx(() => SizedBox(
               height: 32,
               child: Container(
                 padding: stateGlobal.isPortrait.isTrue

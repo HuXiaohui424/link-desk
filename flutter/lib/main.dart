@@ -169,7 +169,8 @@ void runMainApp(bool startService) async {
     windowManager.setOpacity(1);
     windowManager.setTitle(getWindowName());
     // Do not use `windowManager.setResizable()` here.
-    setResizable(!bind.isIncomingOnly());
+    setResizable(false);
+    await windowManager.setSize(const Size(1000, 640));
   });
 }
 

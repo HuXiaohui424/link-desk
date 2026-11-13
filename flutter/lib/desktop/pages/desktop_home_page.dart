@@ -8,14 +8,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
+import 'package:flutter_hbb/common/widgets/peer_tab_page.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
-import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
+import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/widgets/update_progress.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
+import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
-import 'package:flutter_hbb/models/state_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:flutter_hbb/utils/platform_channel.dart';
 import 'package:get/get.dart';
@@ -49,8 +50,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   var watchIsCanRecordAudio = false;
   Timer? _updateTimer;
   bool isCardClosed = false;
+  SettingsTabKey? _selectedMainPage;
+  int? _selectedPeerTab;
+  Worker? _settingsWorker;
 
-  final RxBool _editHover = false.obs;
   final RxBool _block = false.obs;
 
   final GlobalKey _childKey = GlobalKey();
@@ -76,102 +79,154 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   Widget buildLeftPane(BuildContext context) {
-    final isIncomingOnly = bind.isIncomingOnly();
-    final isOutgoingOnly = bind.isOutgoingOnly();
-    final children = <Widget>[
-      if (!isOutgoingOnly) buildPresetPasswordWarning(),
-      if (bind.isCustomClient())
-        Align(
-          alignment: Alignment.center,
-          child: loadPowered(context),
-        ),
-      Align(
-        alignment: Alignment.center,
-        child: loadLogo(),
-      ),
-      buildTip(context),
-      if (!isOutgoingOnly) buildIDBoard(context),
-      if (!isOutgoingOnly) buildPasswordBoard(context),
-      FutureBuilder<Widget>(
-        future: Future.value(
-            Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
-        builder: (_, data) {
-          if (data.hasData) {
-            if (isIncomingOnly) {
-              if (isInHomePage()) {
-                Future.delayed(Duration(milliseconds: 300), () {
-                  _updateWindowSize();
-                });
-              }
-            }
-            return data.data!;
-          } else {
-            return const Offstage();
-          }
-        },
-      ),
-    ];
-    if (isIncomingOnly) {
-      children.addAll([
-        Divider(),
-        OnlineStatusWidget(
-          onSvcStatusChanged: () {
-            if (isInHomePage()) {
-              Future.delayed(Duration(milliseconds: 300), () {
-                _updateWindowSize();
-              });
-            }
-          },
-        ).marginOnly(bottom: 6, right: 6)
-      ]);
-    }
     final textColor = Theme.of(context).textTheme.titleLarge?.color;
     return ChangeNotifierProvider.value(
       value: gFFI.serverModel,
       child: Container(
-        width: isIncomingOnly ? 280.0 : 200.0,
+        width: 200.0,
         color: Theme.of(context).colorScheme.background,
         child: Stack(
           children: [
             Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SingleChildScrollView(
-                  controller: _leftPaneScrollController,
-                  child: Column(
-                    key: _childKey,
-                    children: children,
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: (_) => windowManager.startDragging(),
+                  child: const SizedBox(height: 30),
+                ),
+                const SizedBox(height: 18),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    bind.mainGetAppNameSync(),
+                    style: Theme.of(context).textTheme.titleMedium,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Expanded(child: Container())
-              ],
-            ),
-            if (isOutgoingOnly)
-              Positioned(
-                bottom: 6,
-                left: 12,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    child: Obx(
-                      () => Icon(
-                        Icons.settings,
-                        color: _editHover.value
-                            ? textColor
-                            : Colors.grey.withOpacity(0.5),
-                        size: 22,
+                const SizedBox(height: 20),
+                Builder(builder: (context) {
+                  final selected =
+                      _selectedMainPage == null && _selectedPeerTab == null;
+                  return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: ListTile(
+                    dense: true,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12),
+                    minLeadingWidth: 24,
+                    horizontalTitleGap: 8,
+                    leading: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Center(
+                        child: Icon(Icons.home_outlined,
+                            color: Theme.of(context).colorScheme.primary),
                       ),
                     ),
-                    onTap: () => {
-                      if (DesktopSettingPage.tabKeys.isNotEmpty)
-                        {
-                          DesktopSettingPage.switch2page(
-                              DesktopSettingPage.tabKeys[0])
-                        }
-                    },
-                    onHover: (value) => _editHover.value = value,
+                    title: Text(translate('Home')),
+                    selected: selected,
+                    selectedColor: Theme.of(context).colorScheme.primary,
+                    onTap: () => setState(() {
+                      _selectedMainPage = null;
+                      _selectedPeerTab = null;
+                    }),
+                  ),
+                );
+                }),
+                ChangeNotifierProvider.value(
+                  value: gFFI.peerTabModel,
+                  child: Consumer<PeerTabModel>(
+                    builder: (context, model, _) => Column(
+                      children: model.visibleEnabledOrderedIndexs.map((index) {
+                        final selected = _selectedMainPage == null &&
+                            _selectedPeerTab == index;
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withOpacity(0.12)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12),
+                            minLeadingWidth: 24,
+                            horizontalTitleGap: 8,
+                            leading: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: Center(
+                                  child: Icon(model.tabIcon(index), size: 24)),
+                            ),
+                            title: Text(model.tabTooltip(index)),
+                            selected: selected,
+                            selectedColor:
+                                Theme.of(context).colorScheme.primary,
+                            onTap: () {
+                              model.setCurrentTab(index);
+                              bind.setLocalFlutterOption(
+                                  k: kOptionPeerTabIndex,
+                                  v: index.toString());
+                              setState(() {
+                                _selectedMainPage = null;
+                                _selectedPeerTab = index;
+                              });
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
-              )
+                const Spacer(),
+                if (!bind.isDisableSettings())
+                  Container(
+                    margin: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+                    decoration: BoxDecoration(
+                      color: _selectedMainPage != null
+                          ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: ListTile(
+                      dense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12),
+                      minLeadingWidth: 24,
+                      horizontalTitleGap: 8,
+                      leading: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Center(
+                          child: Icon(Icons.settings_outlined,
+                              color: _selectedMainPage != null
+                                  ? Theme.of(context).colorScheme.primary
+                                  : textColor),
+                        ),
+                      ),
+                      title: Text(translate('Settings')),
+                      selected: _selectedMainPage != null,
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      onTap: () => setState(() {
+                        _selectedMainPage = SettingsTabKey.general;
+                        DesktopTabPage.onAddSetting();
+                      }),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -179,9 +234,68 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   buildRightPane(BuildContext context) {
+    if (_selectedMainPage != null) {
+      return Container(
+        color: Colors.white,
+        child: DesktopSettingPage(initialTabkey: _selectedMainPage!),
+      );
+    }
+    if (_selectedPeerTab != null) {
+      return Container(
+        color: Colors.white,
+        child: ChangeNotifierProvider.value(
+          value: gFFI.peerTabModel,
+          child: const PeerTabPage(showTabBar: false),
+        ),
+      );
+    }
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: ConnectionPage(),
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (_) => windowManager.startDragging(),
+            child: const SizedBox(height: 30),
+          ),
+          Flexible(
+            flex: 0,
+            child: SingleChildScrollView(
+              controller: _leftPaneScrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (bind.isCustomClient()) loadPowered(context),
+                  buildTip(context),
+                  if (!bind.isOutgoingOnly())
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: buildIDBoard(context)),
+                        Expanded(child: buildPasswordBoard(context)),
+                      ],
+                    ),
+                  SizedBox(
+                    height: 1,
+                    child: Container(color: Theme.of(context).dividerColor),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: ConnectionPage()),
+          if (bind.isIncomingOnly())
+            OnlineStatusWidget(
+              onSvcStatusChanged: () {
+                if (isInHomePage()) {
+                  Future.delayed(
+                      Duration(milliseconds: 300), _updateWindowSize);
+                }
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -189,15 +303,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     final model = gFFI.serverModel;
     return Container(
       margin: const EdgeInsets.only(left: 20, right: 11),
-      height: 57,
+      height: 76,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
-          Container(
-            width: 2,
-            decoration: const BoxDecoration(color: MyTheme.accent),
-          ).marginOnly(top: 5),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(left: 7),
@@ -211,7 +321,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          translate("ID"),
+                          "本设备识别码",
                           style: TextStyle(
                               fontSize: 14,
                               color: Theme.of(context)
@@ -220,29 +330,46 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                                   ?.color
                                   ?.withOpacity(0.5)),
                         ).marginOnly(top: 5),
-                        buildPopupMenu(context)
                       ],
                     ),
                   ),
-                  Flexible(
-                    child: GestureDetector(
-                      onDoubleTap: () {
-                        Clipboard.setData(
-                            ClipboardData(text: model.serverId.text));
-                        showToast(translate("Copied"));
-                      },
-                      child: TextFormField(
-                        controller: model.serverId,
-                        readOnly: true,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.only(top: 10, bottom: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onDoubleTap: () {
+                            Clipboard.setData(
+                                ClipboardData(text: model.serverId.text));
+                            showToast(translate("Copied"));
+                          },
+                          child: TextFormField(
+                            controller: model.serverId,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              filled: false,
+                              fillColor: Colors.transparent,
+                              contentPadding:
+                                  EdgeInsets.only(top: 10, bottom: 10),
+                            ),
+                            style: TextStyle(fontSize: 22),
+                          ).workaroundFreezeLinuxMint(),
                         ),
-                        style: TextStyle(
-                          fontSize: 22,
-                        ),
-                      ).workaroundFreezeLinuxMint(),
-                    ),
+                      ),
+                      IconButton(
+                        tooltip: translate('Copy'),
+                        icon: const Icon(Icons.copy_outlined, size: 18),
+                        onPressed: () {
+                          Clipboard.setData(
+                              ClipboardData(text: model.serverId.text));
+                          showToast(translate("Copied"));
+                        },
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                        constraints:
+                            const BoxConstraints(minWidth: 28, minHeight: 28),
+                      ),
+                    ],
                   )
                 ],
               ),
@@ -250,31 +377,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           ),
         ],
       ),
-    );
-  }
-
-  Widget buildPopupMenu(BuildContext context) {
-    final textColor = Theme.of(context).textTheme.titleLarge?.color;
-    RxBool hover = false.obs;
-    return InkWell(
-      onTap: DesktopTabPage.onAddSetting,
-      child: Tooltip(
-        message: translate('Settings'),
-        child: Obx(
-          () => CircleAvatar(
-            radius: 15,
-            backgroundColor: hover.value
-                ? Theme.of(context).scaffoldBackgroundColor
-                : Theme.of(context).colorScheme.background,
-            child: Icon(
-              Icons.more_vert_outlined,
-              size: 20,
-              color: hover.value ? textColor : textColor?.withOpacity(0.5),
-            ),
-          ),
-        ),
-      ),
-      onHover: (value) => hover.value = value,
     );
   }
 
@@ -290,7 +392,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
   buildPasswordBoard2(BuildContext context, ServerModel model) {
     RxBool refreshHover = false.obs;
-    RxBool editHover = false.obs;
     final textColor = Theme.of(context).textTheme.titleLarge?.color;
     final showOneTime = model.approveMode != 'click' &&
         model.verificationMethod != kUsePermanentPassword;
@@ -300,11 +401,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
-          Container(
-            width: 2,
-            height: 52,
-            decoration: BoxDecoration(color: MyTheme.accent),
-          ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(left: 7),
@@ -312,7 +408,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AutoSizeText(
-                    translate("One-time Password"),
+                    "一次性验证码",
                     style: TextStyle(
                         fontSize: 14, color: textColor?.withOpacity(0.5)),
                     maxLines: 1,
@@ -333,6 +429,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                             readOnly: true,
                             decoration: InputDecoration(
                               border: InputBorder.none,
+                              filled: false,
+                              fillColor: Colors.transparent,
                               contentPadding:
                                   EdgeInsets.only(top: 14, bottom: 10),
                             ),
@@ -340,6 +438,20 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                           ).workaroundFreezeLinuxMint(),
                         ),
                       ),
+                      if (showOneTime)
+                        IconButton(
+                          tooltip: translate('Copy'),
+                          icon: const Icon(Icons.copy_outlined, size: 18),
+                          onPressed: () {
+                            Clipboard.setData(
+                                ClipboardData(text: model.serverPasswd.text));
+                            showToast(translate("Copied"));
+                          },
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          constraints:
+                              const BoxConstraints(minWidth: 28, minHeight: 28),
+                        ),
                       if (showOneTime)
                         AnimatedRotationWidget(
                           onPressed: () => bind.mainUpdateTemporaryPassword(),
@@ -357,24 +469,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                           ),
                           onHover: (value) => refreshHover.value = value,
                         ).marginOnly(right: 8, top: 4),
-                      if (!bind.isDisableSettings())
-                        InkWell(
-                          child: Tooltip(
-                            message: translate('Change Password'),
-                            child: Obx(
-                              () => Icon(
-                                Icons.edit,
-                                color: editHover.value
-                                    ? textColor
-                                    : Color(0xFFDDDDDD),
-                                size: 22,
-                              ).marginOnly(right: 8, top: 4),
-                            ),
-                          ),
-                          onTap: () => DesktopSettingPage.switch2page(
-                              SettingsTabKey.safety),
-                          onHover: (value) => editHover.value = value,
-                        ),
                     ],
                   ),
                 ],
@@ -391,40 +485,51 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return Padding(
       padding:
           const EdgeInsets.only(left: 20.0, right: 16, top: 16.0, bottom: 5),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Column(
-            children: [
-              if (!isOutgoingOnly)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    translate("Your Desktop"),
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-            ],
-          ),
-          SizedBox(
-            height: 10.0,
-          ),
           if (!isOutgoingOnly)
-            Text(
-              translate("desk_tip"),
-              overflow: TextOverflow.clip,
-              style: Theme.of(context).textTheme.bodySmall,
+            Expanded(
+              child: Text(
+                "允许控制本设备",
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
-          if (isOutgoingOnly)
-            Text(
-              translate("outgoing_only_desk_tip"),
-              overflow: TextOverflow.clip,
-              style: Theme.of(context).textTheme.bodySmall,
+          if (!bind.isDisableSettings())
+            OutlinedButton(
+              onPressed: _openPermissionSettings,
+              child: Text(translate('Configure')),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
             ),
         ],
       ),
     );
+  }
+
+  void _openPermissionSettings() {
+    if (isMacOS) {
+      if (!bind.mainIsCanScreenRecording(prompt: false)) {
+        bind.mainIsCanScreenRecording(prompt: true);
+        launchUrl(Uri.parse(
+            'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'));
+      } else if (!bind.isOutgoingOnly() &&
+          !bind.mainIsProcessTrusted(prompt: false)) {
+        bind.mainIsProcessTrusted(prompt: true);
+        launchUrl(Uri.parse(
+            'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'));
+      } else if (!bind.mainIsCanInputMonitoring(prompt: false)) {
+        bind.mainIsCanInputMonitoring(prompt: true);
+        launchUrl(Uri.parse(
+            'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent'));
+      }
+      return;
+    }
+    bind.mainIsCanScreenRecording(prompt: true);
   }
 
   Widget buildHelpCards(String updateUrl) {
@@ -699,6 +804,12 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   @override
   void initState() {
     super.initState();
+    _settingsWorker = ever<SettingsTabKey?>(
+        DesktopTabPage.requestedSettingsTab, (tab) {
+      if (tab != null && mounted) {
+        setState(() => _selectedMainPage = tab);
+      }
+    });
     _updateTimer = periodic_immediate(const Duration(seconds: 1), () async {
       await gFFI.serverModel.fetchID();
       final error = await bind.mainGetError();
@@ -875,6 +986,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     _uniLinksSubscription?.cancel();
     Get.delete<RxBool>(tag: 'stop-service');
     _updateTimer?.cancel();
+    _settingsWorker?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

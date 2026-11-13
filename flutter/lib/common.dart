@@ -2136,7 +2136,9 @@ Future<bool> restoreWindowPosition(WindowType type,
     }
   }
 
-  final size = await _adjustRestoreMainWindowSize(lpos.width, lpos.height);
+  final size = type == WindowType.Main && !bind.isIncomingOnly()
+      ? const Size(1000, 640)
+      : await _adjustRestoreMainWindowSize(lpos.width, lpos.height);
   final offsetLeftTop = await _adjustRestoreMainWindowOffset(
     lpos.offsetWidth,
     lpos.offsetHeight,
@@ -2156,7 +2158,8 @@ Future<bool> restoreWindowPosition(WindowType type,
               ignoreDevicePixelRatio: _ignoreDevicePixelRatio);
         }
       }
-      if (lpos.isMaximized == true) {
+      if (lpos.isMaximized == true &&
+          !(type == WindowType.Main && !bind.isIncomingOnly())) {
         await restorePos();
         if (!(bind.isIncomingOnly() || bind.isOutgoingOnly())) {
           await windowManager.maximize();

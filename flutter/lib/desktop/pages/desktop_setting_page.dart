@@ -24,8 +24,6 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
 
-const double _kTabWidth = 200;
-const double _kTabHeight = 42;
 const double _kCardFixedWidth = 540;
 const double _kCardLeftMargin = 15;
 const double _kContentHMargin = 15;
@@ -36,17 +34,6 @@ const double _kListViewBottomMargin = 15;
 const double _kTitleFontSize = 20;
 const double _kContentFontSize = 15;
 const Color _accentColor = MyTheme.accent;
-const String _kSettingPageControllerTag = 'settingPageController';
-const String _kSettingPageTabKeyTag = 'settingPageTabKey';
-
-class _TabInfo {
-  late final SettingsTabKey key;
-  late final String label;
-  late final IconData unselected;
-  late final IconData selected;
-  _TabInfo(this.key, this.label, this.unselected, this.selected);
-}
-
 enum SettingsTabKey {
   general,
   safety,
@@ -83,22 +70,10 @@ class DesktopSettingPage extends StatefulWidget {
 
   static void switch2page(SettingsTabKey page) {
     try {
-      int index = tabKeys.indexOf(page);
-      if (index == -1) {
+      if (!tabKeys.contains(page)) {
         return;
       }
-      if (Get.isRegistered<PageController>(tag: _kSettingPageControllerTag) &&
-          Get.isRegistered<Rx<SettingsTabKey>>(tag: _kSettingPageTabKeyTag)) {
-        DesktopTabPage.onAddSetting(initialPage: page);
-        PageController controller =
-            Get.find<PageController>(tag: _kSettingPageControllerTag);
-        Rx<SettingsTabKey> selected =
-            Get.find<Rx<SettingsTabKey>>(tag: _kSettingPageTabKeyTag);
-        selected.value = page;
-        controller.jumpToPage(index);
-      } else {
-        DesktopTabPage.onAddSetting(initialPage: page);
-      }
+      DesktopTabPage.onAddSetting(initialPage: page);
     } catch (e) {
       debugPrintStack(label: '$e');
     }
@@ -107,12 +82,8 @@ class DesktopSettingPage extends StatefulWidget {
 
 class _DesktopSettingPageState extends State<DesktopSettingPage>
     with
-        TickerProviderStateMixin,
         AutomaticKeepAliveClientMixin,
         WidgetsBindingObserver {
-  late PageController controller;
-  late Rx<SettingsTabKey> selectedTab;
-
   @override
   bool get wantKeepAlive => true;
 
@@ -121,22 +92,6 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   Timer? _videoConnTimer;
 
   _DesktopSettingPageState(SettingsTabKey initialTabkey) {
-    var initialIndex = DesktopSettingPage.tabKeys.indexOf(initialTabkey);
-    if (initialIndex == -1) {
-      initialIndex = 0;
-    }
-    selectedTab = DesktopSettingPage.tabKeys[initialIndex].obs;
-    Get.put<Rx<SettingsTabKey>>(selectedTab, tag: _kSettingPageTabKeyTag);
-    controller = PageController(initialPage: initialIndex);
-    Get.put<PageController>(controller, tag: _kSettingPageControllerTag);
-    controller.addListener(() {
-      if (controller.page != null) {
-        int page = controller.page!.toInt();
-        if (page < DesktopSettingPage.tabKeys.length) {
-          selectedTab.value = DesktopSettingPage.tabKeys[page];
-        }
-      }
-    });
   }
 
   @override
@@ -168,44 +123,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   void dispose() {
     _videoConnTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    Get.delete<PageController>(tag: _kSettingPageControllerTag);
-    Get.delete<Rx<SettingsTabKey>>(tag: _kSettingPageTabKeyTag);
-    // Get.delete does not dispose a plain ChangeNotifier.
-    controller.dispose();
     super.dispose();
-  }
-
-  List<_TabInfo> _settingTabs() {
-    final List<_TabInfo> settingTabs = <_TabInfo>[];
-    for (final tab in DesktopSettingPage.tabKeys) {
-      switch (tab) {
-        case SettingsTabKey.general:
-          settingTabs.add(_TabInfo(
-              tab, 'General', Icons.settings_outlined, Icons.settings));
-          break;
-        case SettingsTabKey.safety:
-          settingTabs.add(_TabInfo(tab, 'Security',
-              Icons.enhanced_encryption_outlined, Icons.enhanced_encryption));
-          break;
-        case SettingsTabKey.display:
-          settingTabs.add(_TabInfo(tab, 'Display',
-              Icons.desktop_windows_outlined, Icons.desktop_windows));
-          break;
-        case SettingsTabKey.account:
-          settingTabs.add(
-              _TabInfo(tab, 'Account', Icons.person_outline, Icons.person));
-          break;
-        case SettingsTabKey.printer:
-          settingTabs
-              .add(_TabInfo(tab, 'Printer', Icons.print_outlined, Icons.print));
-          break;
-        case SettingsTabKey.about:
-          settingTabs
-              .add(_TabInfo(tab, 'About', Icons.info_outline, Icons.info));
-          break;
-      }
-    }
-    return settingTabs;
   }
 
   List<Widget> _children() {
@@ -213,22 +131,22 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     for (final tab in DesktopSettingPage.tabKeys) {
       switch (tab) {
         case SettingsTabKey.general:
-          children.add(const _General());
+          children.add(_section(translate('General'), const _General()));
           break;
         case SettingsTabKey.safety:
-          children.add(const _Safety());
+          children.add(_section(translate('Security'), const _Safety()));
           break;
         case SettingsTabKey.display:
-          children.add(const _Display());
+          children.add(_section(translate('Display'), const _Display()));
           break;
         case SettingsTabKey.account:
-          children.add(const _Account());
+          children.add(_section(translate('Account'), const _Account()));
           break;
         case SettingsTabKey.printer:
-          children.add(const _Printer());
+          children.add(_section(translate('Printer'), const _Printer()));
           break;
         case SettingsTabKey.about:
-          children.add(const _About());
+          children.add(_section(translate('About'), const _About()));
           break;
       }
     }
@@ -262,121 +180,36 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      body: _buildBlock(
-        children: <Widget>[
-          SizedBox(
-            width: _kTabWidth,
+      backgroundColor: Colors.white,
+      body: _buildBlock(children: [
+        Expanded(
+          child: SingleChildScrollView(
             child: Column(
-              children: [
-                _header(context),
-                Flexible(child: _listView(tabs: _settingTabs())),
-              ],
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: _children(),
             ),
           ),
-          const VerticalDivider(width: 1),
-          Expanded(
-            child: Container(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              child: PageView(
-                controller: controller,
-                physics: NeverScrollableScrollPhysics(),
-                children: _children(),
-              ),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _header(BuildContext context) {
-    final settingsText = Text(
-      translate('Settings'),
-      textAlign: TextAlign.left,
-      style: const TextStyle(
-        color: _accentColor,
-        fontSize: _kTitleFontSize,
-        fontWeight: FontWeight.w400,
-      ),
-    );
-    return Row(
-      children: [
-        if (isWeb)
-          IconButton(
-            onPressed: () {
-              if (Navigator.canPop(context)) {
-                Navigator.pop(context);
-              }
-            },
-            icon: Icon(Icons.arrow_back),
-          ).marginOnly(left: 5),
-        if (isWeb)
-          SizedBox(
-            height: 62,
-            child: Align(
-              alignment: Alignment.center,
-              child: settingsText,
-            ),
-          ).marginOnly(left: 20),
-        if (!isWeb)
-          SizedBox(
-            height: 62,
-            child: settingsText,
-          ).marginOnly(left: 20, top: 10),
-        const Spacer(),
-      ],
-    );
-  }
-
-  Widget _listView({required List<_TabInfo> tabs}) {
-    final scrollController = ScrollController();
-    return ListView(
-      controller: scrollController,
-      children: tabs.map((tab) => _listItem(tab: tab)).toList(),
-    );
-  }
-
-  Widget _listItem({required _TabInfo tab}) {
-    return Obx(() {
-      bool selected = tab.key == selectedTab.value;
-      return SizedBox(
-        width: _kTabWidth,
-        height: _kTabHeight,
-        child: InkWell(
-          onTap: () {
-            if (selectedTab.value != tab.key) {
-              int index = DesktopSettingPage.tabKeys.indexOf(tab.key);
-              if (index == -1) {
-                return;
-              }
-              controller.jumpToPage(index);
-            }
-            selectedTab.value = tab.key;
-          },
-          child: Row(children: [
-            Container(
-              width: 4,
-              height: _kTabHeight * 0.7,
-              color: selected ? _accentColor : null,
-            ),
-            Icon(
-              selected ? tab.selected : tab.unselected,
-              color: selected ? _accentColor : null,
-              size: 20,
-            ).marginOnly(left: 13, right: 10),
-            Text(
-              translate(tab.label),
-              style: TextStyle(
-                  color: selected ? _accentColor : null,
-                  fontWeight: FontWeight.w400,
-                  fontSize: _kContentFontSize),
-            ),
-          ]),
         ),
-      );
-    });
+      ]),
+    );
   }
+
+  Widget _section(String title, Widget child) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+            child: Text(title,
+                style: const TextStyle(
+                    color: _accentColor,
+                    fontSize: _kTitleFontSize,
+                    fontWeight: FontWeight.w500)),
+          ),
+          child,
+          const Divider(height: 1),
+        ],
+      );
+
 }
 
 //#region pages
@@ -396,9 +229,7 @@ class _GeneralState extends State<_General> {
 
   @override
   Widget build(BuildContext context) {
-    final scrollController = ScrollController();
-    return ListView(
-      controller: scrollController,
+    return Column(
       children: [
         if (!isWeb) service(),
         theme(),
@@ -985,14 +816,11 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
   bool locked = bind.mainIsInstalled();
-  final scrollController = ScrollController();
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return SingleChildScrollView(
-        controller: scrollController,
-        child: Column(
+    return Column(
           children: [
             _lock(locked, 'Unlock Security Settings', () {
               locked = false;
@@ -1007,8 +835,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                   _Card(title: 'ID', children: [changeId()]),
               ]),
             ),
-          ],
-        )).marginOnly(bottom: _kListViewBottomMargin);
+          ]).marginOnly(bottom: _kListViewBottomMargin);
   }
 
   Widget tfa() {
@@ -1770,8 +1597,7 @@ class _Display extends StatefulWidget {
 class _DisplayState extends State<_Display> {
   @override
   Widget build(BuildContext context) {
-    final scrollController = ScrollController();
-    return ListView(controller: scrollController, children: [
+    return Column(children: [
       viewStyle(context),
       scrollStyle(context),
       imageQuality(context),
@@ -1971,9 +1797,7 @@ class _Account extends StatefulWidget {
 class _AccountState extends State<_Account> {
   @override
   Widget build(BuildContext context) {
-    final scrollController = ScrollController();
-    return ListView(
-      controller: scrollController,
+    return Column(
       children: [
         _Card(title: 'Account', children: [accountAction(), useInfo()]),
       ],
@@ -2115,8 +1939,7 @@ class _Printer extends StatefulWidget {
 class __PrinterState extends State<_Printer> {
   @override
   Widget build(BuildContext context) {
-    final scrollController = ScrollController();
-    return ListView(controller: scrollController, children: [
+    return Column(children: [
       outgoing(context),
       incoming(context),
     ]).marginOnly(bottom: _kListViewBottomMargin);
@@ -2282,10 +2105,7 @@ class _AboutState extends State<_About> {
       final fingerprint = data['fingerprint'].toString();
       final myId = data['myId'].toString();
       const linkStyle = TextStyle(decoration: TextDecoration.underline);
-      final scrollController = ScrollController();
-      return SingleChildScrollView(
-        controller: scrollController,
-        child: _Card(title: translate('About RustDesk'), children: [
+      return _Card(title: translate('About RustDesk'), children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2350,8 +2170,7 @@ class _AboutState extends State<_About> {
               ).marginSymmetric(vertical: 4.0)
             ],
           ).marginOnly(left: _kContentHMargin)
-        ]),
-      );
+        ]);
     });
   }
 }
@@ -2370,7 +2189,8 @@ Widget _Card(
       Flexible(
         child: SizedBox(
           width: _kCardFixedWidth,
-          child: Card(
+          child: Container(
+            color: Colors.transparent,
             child: Column(
               children: [
                 Row(
@@ -2738,7 +2558,8 @@ Widget _lock(
           Flexible(
             child: SizedBox(
               width: _kCardFixedWidth,
-              child: Card(
+              child: Container(
+                color: Colors.transparent,
                 child: ElevatedButton(
                   child: SizedBox(
                       height: 25,

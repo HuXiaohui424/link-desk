@@ -523,6 +523,7 @@ class _DesktopTabState extends State<DesktopTab>
     return Column(children: [
       Obx(() {
         if (stateGlobal.showTabBar.isTrue &&
+            !(isMainWindow && state.value.tabs.length == 1) &&
             !(kUseCompatibleUiMode && isHideSingleItem())) {
           final showBottomDivider = _showTabBarBottomDivider(tabType);
           return SizedBox(
