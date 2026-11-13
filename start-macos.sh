@@ -34,9 +34,10 @@ read_workflow_value() {
 RUST_TOOLCHAIN="${RUST_TOOLCHAIN:-$(read_workflow_value MAC_RUST_VERSION)}"
 RUST_TOOLCHAIN="${RUST_TOOLCHAIN:-1.81}"
 if [[ "$HOST_ARCH" == "arm64" ]]; then
-  FLUTTER_VERSION="${FLUTTER_VERSION:-$(read_workflow_value FLUTTER_MACOS_ARM_VERSION)}"
+  FLUTTER_VERSION="$(read_workflow_value FLUTTER_MACOS_ARM_VERSION)"
+else
+  FLUTTER_VERSION="$(read_workflow_value FLUTTER_VERSION)"
 fi
-FLUTTER_VERSION="${FLUTTER_VERSION:-$(read_workflow_value FLUTTER_VERSION)}"
 FLUTTER_VERSION="${FLUTTER_VERSION:-3.24.5}"
 VCPKG_COMMIT="${VCPKG_COMMIT:-$(python3 -c 'import json,sys; print(json.load(open("vcpkg.json"))["vcpkg-configuration"]["default-registry"]["baseline"])' 2>/dev/null || true)}"
 VCPKG_COMMIT="${VCPKG_COMMIT:-9e593bb18ea69cc5095e012465dcd675a822ed0d}"
@@ -102,23 +103,27 @@ fi
 
 detect_flutter_sdk() {
   local flutter_bin sdk
+  for sdk in "$CACHE_DIR/flutter-$FLUTTER_VERSION" "$CACHE_DIR/flutter"; do
+    if flutter_sdk_matches "$sdk"; then
+      printf '%s\n' "$sdk"
+      return 0
+    fi
+  done
   if have flutter; then
     flutter_bin="$(command -v flutter)"
     sdk="$(cd "$(dirname "$flutter_bin")/.." && pwd)"
-    if [[ -x "$sdk/bin/flutter" ]]; then
+    if flutter_sdk_matches "$sdk"; then
       printf '%s\n' "$sdk"
       return 0
     fi
   fi
-  if [[ -n "${FLUTTER_SDK:-}" && -x "$FLUTTER_SDK/bin/flutter" ]]; then
-    printf '%s\n' "$FLUTTER_SDK"
-    return 0
-  fi
-  if [[ -x "$CACHE_DIR/flutter/bin/flutter" ]]; then
-    printf '%s\n' "$CACHE_DIR/flutter"
-    return 0
-  fi
   return 1
+}
+
+flutter_sdk_matches() {
+  local sdk="$1"
+  [[ -x "$sdk/bin/flutter" ]] || return 1
+  [[ "$("$sdk/bin/flutter" --version --machine 2>/dev/null | "$PYTHON3" -c 'import json, sys; print(json.load(sys.stdin)["frameworkVersion"])' 2>/dev/null || true)" == "$FLUTTER_VERSION" ]]
 }
 
 detect_vcpkg_root() {
@@ -207,17 +212,89 @@ ensure_flutter() {
     return
   fi
   log "下载 Flutter $FLUTTER_VERSION"
-  local zip="$CACHE_DIR/flutter_macos_${FLUTTER_VERSION}-stable.zip"
+  local archive_name="flutter_macos_${FLUTTER_VERSION}-stable.zip"
+  [[ "$HOST_ARCH" == "arm64" ]] && archive_name="flutter_macos_arm64_${FLUTTER_VERSION}-stable.zip"
+  local zip="$CACHE_DIR/$archive_name"
+  local sdk_dir="$CACHE_DIR/flutter-$FLUTTER_VERSION"
+  local unpack_dir
   mkdir -p "$CACHE_DIR"
   if [[ ! -s "$zip" ]]; then
     curl -fL --retry 3 -o "$zip" \
-      "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.zip"
+      "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/$archive_name"
   fi
-  rm -rf "$CACHE_DIR/flutter"
-  unzip -q "$zip" -d "$CACHE_DIR"
-  FLUTTER_SDK="$CACHE_DIR/flutter"
+  unpack_dir="$(mktemp -d "${TMPDIR:-/tmp}/rustdesk-flutter.XXXXXX")"
+  unzip -q "$zip" -d "$unpack_dir"
+  mv "$unpack_dir/flutter" "$sdk_dir"
+  rmdir "$unpack_dir"
+  FLUTTER_SDK="$sdk_dir"
   prepend_path "$FLUTTER_SDK/bin"
   flutter config --enable-macos-desktop >/dev/null
+}
+
+prepare_flutter_compat() {
+  [[ "$HOST_ARCH" == "arm64" && "$FLUTTER_VERSION" == "3.44.9" ]] || return 0
+  log "临时应用 Flutter $FLUTTER_VERSION 兼容调整"
+  FLUTTER_COMPAT_BACKUP="$(mktemp -d "${TMPDIR:-/tmp}/rustdesk-flutter-compat.XXXXXX")"
+  cp "$ROOT/flutter/lib/common.dart" "$FLUTTER_COMPAT_BACKUP/common.dart"
+  cp "$ROOT/flutter/pubspec.yaml" "$FLUTTER_COMPAT_BACKUP/pubspec.yaml"
+  cp "$ROOT/flutter/macos/Podfile" "$FLUTTER_COMPAT_BACKUP/Podfile"
+  cp "$ROOT/flutter/macos/Runner.xcodeproj/project.pbxproj" "$FLUTTER_COMPAT_BACKUP/project.pbxproj"
+  cp "$ROOT/flutter/macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme" "$FLUTTER_COMPAT_BACKUP/Runner.xcscheme"
+  cp "$ROOT/flutter/pubspec.lock" "$FLUTTER_COMPAT_BACKUP/pubspec.lock"
+  cp "$ROOT/flutter/macos/Podfile.lock" "$FLUTTER_COMPAT_BACKUP/Podfile.lock"
+  trap restore_flutter_compat EXIT
+
+  "$PYTHON3" - "$ROOT/flutter/lib/common.dart" "$ROOT/flutter/pubspec.yaml" "$ROOT/flutter/macos/Podfile" "$ROOT/flutter/macos/Runner.xcodeproj/project.pbxproj" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+common, pubspec, podfile, project = map(Path, sys.argv[1:])
+common_text = common.read_text()
+pubspec_text = pubspec.read_text()
+for old, new in (("dialogTheme: DialogTheme(", "dialogTheme: DialogThemeData("), ("tabBarTheme: const TabBarTheme(", "tabBarTheme: const TabBarThemeData(")):
+    if common_text.count(old) != 2:
+        raise SystemExit(f"Flutter compatibility anchor changed: {old}")
+    common_text = common_text.replace(old, new)
+marker = "dialogTheme: DialogThemeData("
+light = marker + "\n      backgroundColor: Colors.white,"
+dark = marker + "\n      backgroundColor: Color(0xFF18191E),"
+first = common_text.find(marker)
+second = common_text.find(marker, first + 1)
+common_text = common_text[:first] + light + common_text[first + len(marker):]
+second += len(light) - len(marker)
+common_text = common_text[:second] + dark + common_text[second + len(marker):]
+for old, new in (("extended_text: 14.0.0", "extended_text: 15.0.2"), ("google_fonts: ^6.2.1", "google_fonts: ^8.1.0")):
+    if pubspec_text.count(old) != 1:
+        raise SystemExit(f"Flutter compatibility anchor changed: {old}")
+    pubspec_text = pubspec_text.replace(old, new)
+common.write_text(common_text)
+pubspec.write_text(pubspec_text)
+
+pod_text = re.sub(r"platform :osx, '[0-9.]+'", "platform :osx, '12.0'", podfile.read_text(), count=1)
+anchor = "    flutter_additional_macos_build_settings(target)\n"
+override = anchor + "    target.build_configurations.each do |config|\n      config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '12.0'\n    end\n"
+if pod_text.count(anchor) != 1:
+    raise SystemExit("CocoaPods post_install anchor changed")
+podfile.write_text(pod_text.replace(anchor, override))
+project.write_text(re.sub(r"MACOSX_DEPLOYMENT_TARGET = [0-9.]+;", "MACOSX_DEPLOYMENT_TARGET = 12.0;", project.read_text()))
+PY
+  flutter config --no-enable-swift-package-manager >/dev/null
+}
+
+restore_flutter_compat() {
+  local status=$?
+  trap - EXIT
+  set +e
+  cp "$FLUTTER_COMPAT_BACKUP/common.dart" "$ROOT/flutter/lib/common.dart"
+  cp "$FLUTTER_COMPAT_BACKUP/pubspec.yaml" "$ROOT/flutter/pubspec.yaml"
+  cp "$FLUTTER_COMPAT_BACKUP/Podfile" "$ROOT/flutter/macos/Podfile"
+  cp "$FLUTTER_COMPAT_BACKUP/project.pbxproj" "$ROOT/flutter/macos/Runner.xcodeproj/project.pbxproj"
+  cp "$FLUTTER_COMPAT_BACKUP/Runner.xcscheme" "$ROOT/flutter/macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme"
+  cp "$FLUTTER_COMPAT_BACKUP/pubspec.lock" "$ROOT/flutter/pubspec.lock"
+  cp "$FLUTTER_COMPAT_BACKUP/Podfile.lock" "$ROOT/flutter/macos/Podfile.lock"
+  rm -rf "$FLUTTER_COMPAT_BACKUP"
+  exit "$status"
 }
 
 ensure_nasm() {
@@ -367,6 +444,8 @@ sync_submodules
 ensure_macos_resources
 ensure_rust
 ensure_flutter
+log "使用 Flutter: $FLUTTER_SDK ($FLUTTER_VERSION)"
+prepare_flutter_compat
 ensure_nasm
 ensure_vcpkg
 ensure_bridge
@@ -376,6 +455,7 @@ if LLVM_HOME="$(detect_llvm_home)"; then
 fi
 export VCPKG_ROOT
 export PATH
+export MACOSX_DEPLOYMENT_TARGET=12.0
 prepend_path "$HOME/.cargo/bin"
 prepend_path "$BIN_DIR"
 
