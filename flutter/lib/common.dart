@@ -40,6 +40,7 @@ import 'desktop/pages/view_camera_page.dart' as desktop_view_camera;
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'models/model.dart';
 import 'models/platform_model.dart';
+import 'models/link_desk_auth.dart';
 
 import 'package:flutter_hbb/native/win32.dart'
     if (dart.library.html) 'package:flutter_hbb/web/win32.dart';
@@ -167,17 +168,17 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
   final Color? divider;
 
   static final light = ColorThemeExtension(
-    border: Color(0xFFCCCCCC),
-    border2: Color(0xFFBBBBBB),
-    border3: Colors.black26,
-    highlight: Color(0xFFE5E5E5),
+    border: Color(0xFFEAF1FD),
+    border2: Color(0xFFEAF1FD),
+    border3: Color(0x330A2540),
+    highlight: Color(0xFFF0F4FC),
     drag_indicator: Colors.grey[800],
     shadow: Colors.black,
     errorBannerBg: Color(0xFFFDEEEB),
     me: Colors.green,
     toastBg: Colors.black.withOpacity(0.6),
     toastText: Colors.white,
-    divider: Colors.black38,
+    divider: Color(0xFFEAF1FD),
   );
 
   static final dark = ColorThemeExtension(
@@ -248,17 +249,17 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
 class MyTheme {
   MyTheme._();
 
-  static const Color grayBg = Color(0xFFEFEFF2);
-  static const Color accent = Color(0xFF0071FF);
-  static const Color accent50 = Color(0x770071FF);
-  static const Color accent80 = Color(0xAA0071FF);
+  static const Color grayBg = Color(0xFFF0F4FC);
+  static const Color accent = Color(0xFF007BFF);
+  static const Color accent50 = Color(0x77007BFF);
+  static const Color accent80 = Color(0xAA007BFF);
   static const Color canvasColor = Color(0xFF212121);
-  static const Color border = Color(0xFFCCCCCC);
+  static const Color border = Color(0xFFEAF1FD);
   static const Color idColor = Color(0xFF00B6F0);
   static const Color darkGray = Color.fromARGB(255, 148, 148, 148);
   static const Color cmIdColor = Color(0xFF21790B);
-  static const Color dark = Colors.black87;
-  static const Color button = Color(0xFF2C8CFF);
+  static const Color dark = Color(0xFF0A2540);
+  static const Color button = accent;
   static const Color hoverBorder = Color(0xFF999999);
 
   // ListTile
@@ -373,8 +374,8 @@ class MyTheme {
     // https://stackoverflow.com/questions/77537315/after-upgrading-to-flutter-3-16-the-app-bar-background-color-button-size-and
     useMaterial3: false,
     brightness: Brightness.light,
-    hoverColor: Color.fromARGB(255, 224, 224, 224),
-    scaffoldBackgroundColor: Colors.white,
+    hoverColor: Color(0xFFEAF1FD),
+    scaffoldBackgroundColor: grayBg,
     dialogBackgroundColor: Colors.white,
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
@@ -401,17 +402,16 @@ class MyTheme {
           )
         : null,
     textTheme: const TextTheme(
-        titleLarge: TextStyle(fontSize: 19, color: Colors.black87),
-        titleSmall: TextStyle(fontSize: 14, color: Colors.black87),
-        bodySmall: TextStyle(fontSize: 12, color: Colors.black87, height: 1.25),
-        bodyMedium:
-            TextStyle(fontSize: 14, color: Colors.black87, height: 1.25),
+        titleLarge: TextStyle(fontSize: 19, color: dark),
+        titleSmall: TextStyle(fontSize: 14, color: dark),
+        bodySmall: TextStyle(fontSize: 12, color: dark, height: 1.25),
+        bodyMedium: TextStyle(fontSize: 14, color: dark, height: 1.25),
         labelLarge: TextStyle(fontSize: 16.0, color: MyTheme.accent80)),
-    cardColor: grayBg,
+    cardColor: Colors.white,
     hintColor: Color(0xFFAAAAAA),
     visualDensity: VisualDensity.adaptivePlatformDensity,
     tabBarTheme: const TabBarTheme(
-      labelColor: Colors.black87,
+      labelColor: dark,
     ),
     tooltipTheme: tooltipTheme(),
     splashColor: (isDesktop || isWebDesktop) ? Colors.transparent : null,
@@ -438,7 +438,7 @@ class MyTheme {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         backgroundColor: grayBg,
-        foregroundColor: Colors.black87,
+        foregroundColor: dark,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
         ),
@@ -452,13 +452,20 @@ class MyTheme {
         style:
             MenuStyle(backgroundColor: MaterialStatePropertyAll(Colors.white))),
     colorScheme: ColorScheme.light(
-        primary: Colors.blue, secondary: accent, background: grayBg),
+        primary: accent,
+        onPrimary: Colors.white,
+        secondary: accent,
+        onSecondary: Colors.white,
+        background: grayBg,
+        onBackground: dark,
+        surface: Colors.white,
+        onSurface: dark),
     popupMenuTheme: PopupMenuThemeData(
         color: Colors.white,
         shape: RoundedRectangleBorder(
           side: BorderSide(
               color: (isDesktop || isWebDesktop)
-                  ? Color(0xFFECECEC)
+                  ? Color(0xFFEAF1FD)
                   : Colors.transparent),
           borderRadius: BorderRadius.all(Radius.circular(8.0)),
         )),
@@ -560,8 +567,10 @@ class MyTheme {
         style: MenuStyle(
             backgroundColor: MaterialStatePropertyAll(Color(0xFF121212)))),
     colorScheme: ColorScheme.dark(
-      primary: Colors.blue,
+      primary: accent,
+      onPrimary: Colors.white,
       secondary: accent,
+      onSecondary: Colors.white,
       background: Color(0xFF24252B),
     ),
     popupMenuTheme: PopupMenuThemeData(
@@ -1321,7 +1330,7 @@ Color? _msgboxColor(String type) {
   if (type.contains("error") || type == "re-input-password") {
     return Color(0xFFE04F5F);
   }
-  return Color(0xFF2C8CFF);
+  return MyTheme.accent;
 }
 
 Widget msgboxIcon(String type) {
@@ -1601,6 +1610,7 @@ Future<void> initGlobalFFI() async {
   debugPrint("_globalFFI init end");
   // after `put`, can also be globally found by Get.find<FFI>();
   Get.put<FFI>(_globalFFI, permanent: true);
+  Get.put<LinkDeskAuthService>(LinkDeskAuthService(), permanent: true);
 }
 
 String translate(String name) {
@@ -2409,35 +2419,40 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
         Future.delayed(Duration.zero, () {
           rustDeskWinManager.newFileTransfer(id!,
               loginMethod: loginMethod,
-              password: password, forceRelay: forceRelay);
+              password: password,
+              forceRelay: forceRelay);
         });
         break;
       case UriLinkType.viewCamera:
         Future.delayed(Duration.zero, () {
           rustDeskWinManager.newViewCamera(id!,
               loginMethod: loginMethod,
-              password: password, forceRelay: forceRelay);
+              password: password,
+              forceRelay: forceRelay);
         });
         break;
       case UriLinkType.portForward:
         Future.delayed(Duration.zero, () {
           rustDeskWinManager.newPortForward(id!, false,
               loginMethod: loginMethod,
-              password: password, forceRelay: forceRelay);
+              password: password,
+              forceRelay: forceRelay);
         });
         break;
       case UriLinkType.rdp:
         Future.delayed(Duration.zero, () {
           rustDeskWinManager.newPortForward(id!, true,
               loginMethod: loginMethod,
-              password: password, forceRelay: forceRelay);
+              password: password,
+              forceRelay: forceRelay);
         });
         break;
       case UriLinkType.terminal:
         Future.delayed(Duration.zero, () {
           rustDeskWinManager.newTerminal(id!,
               loginMethod: loginMethod,
-              password: password, forceRelay: forceRelay);
+              password: password,
+              forceRelay: forceRelay);
         });
         break;
     }
@@ -2554,20 +2569,28 @@ List<String>? urlLinkToCmdArgs(Uri uri) {
     if (command == '--file-transfer') {
       connect(Get.context!, id,
           loginMethod: loginMethod,
-          isFileTransfer: true, forceRelay: forceRelay, password: password);
+          isFileTransfer: true,
+          forceRelay: forceRelay,
+          password: password);
     } else if (command == '--view-camera') {
       connect(Get.context!, id,
           loginMethod: loginMethod,
-          isViewCamera: true, forceRelay: forceRelay, password: password);
+          isViewCamera: true,
+          forceRelay: forceRelay,
+          password: password);
     } else if (command == '--terminal') {
       connect(Get.context!, id,
           loginMethod: loginMethod,
-          isTerminal: true, forceRelay: forceRelay, password: password);
+          isTerminal: true,
+          forceRelay: forceRelay,
+          password: password);
     } else if (command == '--terminal-admin') {
       setEnvTerminalAdmin();
       connect(Get.context!, id,
           loginMethod: loginMethod,
-          isTerminal: true, forceRelay: forceRelay, password: password);
+          isTerminal: true,
+          forceRelay: forceRelay,
+          password: password);
     } else {
       // Default to remote desktop for '--connect', '--play', or direct connection
       connect(Get.context!, id,
