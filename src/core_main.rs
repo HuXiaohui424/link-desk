@@ -46,6 +46,12 @@ pub fn core_main() -> Option<CoreMainAction> {
     if !crate::common::global_init() {
         return None;
     }
+    if let Ok(server) = std::env::var("LINKDESK_RENDEZVOUS_SERVER") {
+        let server = server.trim().to_owned();
+        if !server.is_empty() && config::Config::get_option("custom-rendezvous-server").is_empty() {
+            crate::ui_interface::set_option("custom-rendezvous-server".into(), server);
+        }
+    }
     crate::load_custom_client();
     #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {
