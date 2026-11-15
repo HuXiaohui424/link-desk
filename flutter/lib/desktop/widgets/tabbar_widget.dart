@@ -708,6 +708,7 @@ class _DesktopTabState extends State<DesktopTab>
       ],
     );
   }
+
 }
 
 class WindowActionPanel extends StatefulWidget {

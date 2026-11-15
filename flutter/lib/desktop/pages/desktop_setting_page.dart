@@ -16,6 +16,7 @@ import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/printer_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
+import 'package:flutter_hbb/models/link_desk_auth.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1788,9 +1789,25 @@ class _AccountState extends State<_Account> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _Card(title: 'Account', children: [accountAction(), useInfo()]),
+        _Card(
+            title: 'Account',
+            children: [accountAction(), linkDeskAction(), useInfo()]),
       ],
     ).marginOnly(bottom: _kListViewBottomMargin);
+  }
+
+  Widget linkDeskAction() {
+    final auth = Get.find<LinkDeskAuthService>();
+    return Obx(() => _Button(
+        auth.isSignedIn ? 'LinkDesk Logout' : 'LinkDesk Login',
+        () async {
+          if (auth.isSignedIn) {
+            await auth.logout();
+          } else {
+            await auth.startOidcLogin();
+          }
+          if (mounted) setState(() {});
+        }));
   }
 
   Widget accountAction() {

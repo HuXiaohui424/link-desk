@@ -2737,6 +2737,14 @@ pub fn verify_login(_raw: &str, _id: &str) -> bool {
     */
 }
 
+pub fn link_desk_auth_required() -> bool {
+    !LocalConfig::get_option("link-desk-auth-required").eq_ignore_ascii_case("N")
+}
+
+pub fn link_desk_is_authenticated() -> bool {
+    !LocalConfig::get_option("link-desk-access-token").is_empty()
+}
+
 #[inline]
 pub fn is_udp_disabled() -> bool {
     Config::get_option(keys::OPTION_DISABLE_UDP) == "Y"

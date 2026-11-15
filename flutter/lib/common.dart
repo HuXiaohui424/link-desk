@@ -380,7 +380,7 @@ class MyTheme {
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
     ),
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       elevation: 15,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18.0),
@@ -410,7 +410,7 @@ class MyTheme {
     cardColor: Colors.white,
     hintColor: Color(0xFFAAAAAA),
     visualDensity: VisualDensity.adaptivePlatformDensity,
-    tabBarTheme: const TabBarTheme(
+    tabBarTheme: const TabBarThemeData(
       labelColor: dark,
     ),
     tooltipTheme: tooltipTheme(),
@@ -484,7 +484,7 @@ class MyTheme {
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
     ),
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       elevation: 15,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18.0),
@@ -518,7 +518,7 @@ class MyTheme {
     ),
     cardColor: Color(0xFF24252B),
     visualDensity: VisualDensity.adaptivePlatformDensity,
-    tabBarTheme: const TabBarTheme(
+    tabBarTheme: const TabBarThemeData(
       labelColor: Colors.white70,
     ),
     tooltipTheme: tooltipTheme(),
@@ -2322,10 +2322,16 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
       }
     }
   } else if (uri != null) {
+    if (_handleLinkDeskOidcCallback(uri)) {
+      return true;
+    }
     args = urlLinkToCmdArgs(uri);
   } else if (uriString != null) {
     final uri = Uri.tryParse(uriString);
     if (uri != null) {
+      if (_handleLinkDeskOidcCallback(uri)) {
+        return true;
+      }
       args = urlLinkToCmdArgs(uri);
     }
   }
@@ -2408,7 +2414,12 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
     switch (type) {
       case UriLinkType.remoteDesktop:
         Future.delayed(Duration.zero, () {
-          rustDeskWinManager.newRemoteDesktop(id!,
+          connectMainDesktop(id!,
+              isFileTransfer: false,
+              isViewCamera: false,
+              isTerminal: false,
+              isTcpTunneling: false,
+              isRDP: false,
               loginMethod: loginMethod,
               password: password,
               switchUuid: switchUuid,
@@ -2417,7 +2428,12 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
         break;
       case UriLinkType.fileTransfer:
         Future.delayed(Duration.zero, () {
-          rustDeskWinManager.newFileTransfer(id!,
+          connectMainDesktop(id!,
+              isFileTransfer: true,
+              isViewCamera: false,
+              isTerminal: false,
+              isTcpTunneling: false,
+              isRDP: false,
               loginMethod: loginMethod,
               password: password,
               forceRelay: forceRelay);
@@ -2425,7 +2441,12 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
         break;
       case UriLinkType.viewCamera:
         Future.delayed(Duration.zero, () {
-          rustDeskWinManager.newViewCamera(id!,
+          connectMainDesktop(id!,
+              isFileTransfer: false,
+              isViewCamera: true,
+              isTerminal: false,
+              isTcpTunneling: false,
+              isRDP: false,
               loginMethod: loginMethod,
               password: password,
               forceRelay: forceRelay);
@@ -2433,7 +2454,12 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
         break;
       case UriLinkType.portForward:
         Future.delayed(Duration.zero, () {
-          rustDeskWinManager.newPortForward(id!, false,
+          connectMainDesktop(id!,
+              isFileTransfer: false,
+              isViewCamera: false,
+              isTerminal: false,
+              isTcpTunneling: true,
+              isRDP: false,
               loginMethod: loginMethod,
               password: password,
               forceRelay: forceRelay);
@@ -2441,7 +2467,12 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
         break;
       case UriLinkType.rdp:
         Future.delayed(Duration.zero, () {
-          rustDeskWinManager.newPortForward(id!, true,
+          connectMainDesktop(id!,
+              isFileTransfer: false,
+              isViewCamera: false,
+              isTerminal: false,
+              isTcpTunneling: false,
+              isRDP: true,
               loginMethod: loginMethod,
               password: password,
               forceRelay: forceRelay);
@@ -2449,7 +2480,12 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
         break;
       case UriLinkType.terminal:
         Future.delayed(Duration.zero, () {
-          rustDeskWinManager.newTerminal(id!,
+          connectMainDesktop(id!,
+              isFileTransfer: false,
+              isViewCamera: false,
+              isTerminal: true,
+              isTcpTunneling: false,
+              isRDP: false,
               loginMethod: loginMethod,
               password: password,
               forceRelay: forceRelay);
@@ -2461,6 +2497,30 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
   }
 
   return false;
+}
+
+bool _handleLinkDeskOidcCallback(Uri uri) {
+  if (uri.scheme != 'linkdesk' ||
+      uri.host != 'oidc' ||
+      uri.path != '/callback') {
+    return false;
+  }
+  final code = uri.queryParameters['code'];
+  final state = uri.queryParameters['state'];
+  if (code == null || state == null || code.isEmpty || state.isEmpty) {
+    showToast(translate('Failed'));
+    return true;
+  }
+  unawaited(() async {
+    final auth = Get.find<LinkDeskAuthService>();
+    if (await auth.exchangeOidcCode(code: code, state: state)) {
+      await auth.restore();
+      showToast(translate('Successful'));
+    } else {
+      showToast(translate('Failed'));
+    }
+  }());
+  return true;
 }
 
 List<String>? urlLinkToCmdArgs(Uri uri) {
@@ -2625,8 +2685,25 @@ connectMainDesktop(String id,
     bool? forceRelay,
     String? password,
     String? connToken,
+    String? switchUuid,
     bool? isSharedPassword,
     String loginMethod = ''}) async {
+  final linkDeskAuth = Get.find<LinkDeskAuthService>();
+  if (!linkDeskAuth.canStartRemoteConnection()) {
+    if (linkDeskAuth.enforceAuth) {
+      await linkDeskAuth.startOidcLogin();
+    }
+    showToast(translate('Login'));
+    return;
+  }
+  if (linkDeskAuth.enforceAuth) {
+    final ticket = await linkDeskAuth.authorizeConnection(id);
+    if (ticket == null) {
+      showToast(translate('Failed'));
+      return;
+    }
+    connToken = ticket;
+  }
   if (isFileTransfer) {
     await rustDeskWinManager.newFileTransfer(id,
         loginMethod: loginMethod,
@@ -2659,6 +2736,8 @@ connectMainDesktop(String id,
     await rustDeskWinManager.newRemoteDesktop(id,
         loginMethod: loginMethod,
         password: password,
+        connToken: connToken,
+        switchUuid: switchUuid,
         isSharedPassword: isSharedPassword,
         forceRelay: forceRelay);
   }

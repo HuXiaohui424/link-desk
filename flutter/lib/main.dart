@@ -29,6 +29,8 @@ import 'mobile/pages/home_page.dart';
 import 'mobile/pages/server_page.dart';
 import 'mobile/widgets/deploy_dialog.dart';
 import 'models/platform_model.dart';
+import 'models/link_desk_auth.dart';
+import 'dart:async';
 
 /// Basic window and launch properties.
 int? kWindowId;
@@ -130,17 +132,33 @@ Future<void> initEnv(String appType) async {
   updateSystemWindowTheme();
 }
 
+Timer? _linkDeskHeartbeatTimer;
+
+void startLinkDeskHeartbeat() {
+  _linkDeskHeartbeatTimer?.cancel();
+  final auth = Get.find<LinkDeskAuthService>();
+  _linkDeskHeartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    unawaited(auth.heartbeat());
+  });
+  unawaited(auth.heartbeat());
+}
+
 void runMainApp(bool startService) async {
   // register uni links
   await initEnv(kAppTypeMain);
   checkUpdate();
   // trigger connection status updater
   await bind.mainCheckConnectStatus();
+  await Get.find<LinkDeskAuthService>().restore();
+  startLinkDeskHeartbeat();
+  listenUniLinks();
   if (startService) {
     gFFI.serverModel.startService();
   }
   await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);
   gFFI.userModel.refreshCurrentUser();
+  await Get.find<LinkDeskAuthService>().restore();
+  startLinkDeskHeartbeat();
   runApp(App());
 
   bool? alwaysOnTop;
@@ -179,6 +197,9 @@ void runMobileApp() async {
   checkUpdate();
   if (isAndroid) androidChannelInit();
   if (isAndroid) platformFFI.syncAndroidServiceAppDirConfigPath();
+  await Get.find<LinkDeskAuthService>().restore();
+  startLinkDeskHeartbeat();
+  listenUniLinks();
   draggablePositions.load();
   await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);
   gFFI.userModel.refreshCurrentUser();
@@ -503,7 +524,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           darkTheme: MyTheme.darkTheme,
           themeMode: MyTheme.currentThemeMode(),
           home: isDesktop
-              ? const DesktopTabPage()
+              ? const LinkDeskDesktopHome()
               : isWeb
                   ? WebHomePage()
                   : HomePage(),
@@ -542,6 +563,107 @@ class _AppState extends State<App> with WidgetsBindingObserver {
         ),
       );
     });
+  }
+}
+
+class LinkDeskDesktopHome extends StatelessWidget {
+  const LinkDeskDesktopHome({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = Get.find<LinkDeskAuthService>();
+    return Obx(() {
+      if (!auth.enforceAuth || auth.isSignedIn) {
+        return const DesktopTabPage();
+      }
+      return LinkDeskLoginPage(auth: auth);
+    });
+  }
+}
+
+class LinkDeskLoginPage extends StatefulWidget {
+  final LinkDeskAuthService auth;
+
+  const LinkDeskLoginPage({super.key, required this.auth});
+
+  @override
+  State<LinkDeskLoginPage> createState() => _LinkDeskLoginPageState();
+}
+
+class _LinkDeskLoginPageState extends State<LinkDeskLoginPage> {
+  bool _loading = false;
+
+  Future<void> _login() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    await widget.auth.startOidcLogin();
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = widget.auth;
+    return Scaffold(
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onPanStart: (_) => windowManager.startDragging(),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Obx(() {
+                final message = auth.error.value;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'LinkDesk',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '请先登录，登录后才能注册设备和远程连接。',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _loading ? null : _login,
+                        icon: _loading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.login),
+                        label: Text(_loading ? '正在打开登录页面...' : '使用 OIDC 登录'),
+                      ),
+                    ),
+                    if (message.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+                }),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

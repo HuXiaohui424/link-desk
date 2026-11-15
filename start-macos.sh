@@ -253,9 +253,14 @@ common, pubspec, podfile, project = map(Path, sys.argv[1:])
 common_text = common.read_text()
 pubspec_text = pubspec.read_text()
 for old, new in (("dialogTheme: DialogTheme(", "dialogTheme: DialogThemeData("), ("tabBarTheme: const TabBarTheme(", "tabBarTheme: const TabBarThemeData(")):
-    if common_text.count(old) != 2:
+    old_count = common_text.count(old)
+    new_count = common_text.count(new)
+    if old_count == 2 and new_count == 0:
+        common_text = common_text.replace(old, new)
+    elif old_count == 0 and new_count == 2:
+        pass
+    else:
         raise SystemExit(f"Flutter compatibility anchor changed: {old}")
-    common_text = common_text.replace(old, new)
 marker = "dialogTheme: DialogThemeData("
 light = marker + "\n      backgroundColor: Colors.white,"
 dark = marker + "\n      backgroundColor: Color(0xFF18191E),"

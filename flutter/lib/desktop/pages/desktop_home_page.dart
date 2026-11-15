@@ -15,6 +15,7 @@ import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/widgets/update_progress.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
+import 'package:flutter_hbb/models/link_desk_auth.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
@@ -42,7 +43,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   @override
   bool get wantKeepAlive => true;
   var systemError = '';
-  StreamSubscription? _uniLinksSubscription;
   var svcStopped = false.obs;
   var watchIsCanScreenRecording = false;
   var watchIsProcessTrust = false;
@@ -99,14 +99,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                   child: const SizedBox(height: 30),
                 ),
                 const SizedBox(height: 18),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    bind.mainGetAppNameSync(),
-                    style: Theme.of(context).textTheme.titleMedium,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                _buildLinkDeskAccount(context),
                 const SizedBox(height: 20),
                 Builder(builder: (context) {
                   final selected =
@@ -248,6 +241,54 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         ),
       ),
     );
+  }
+
+  Widget _buildLinkDeskAccount(BuildContext context) {
+    final auth = Get.find<LinkDeskAuthService>();
+    return Obx(() {
+      final displayName = auth.user.value?.displayName.trim();
+      final name = displayName == null || displayName.isEmpty ? '登录' : displayName;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () async {
+            if (auth.isSignedIn) {
+              await auth.logout();
+            } else {
+              await auth.startOidcLogin();
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Text(
+                    name.substring(0, 1).toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   buildRightPane(BuildContext context) {
@@ -1002,8 +1043,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         }
       }
     });
-    _uniLinksSubscription = listenUniLinks();
-
     if (bind.isIncomingOnly()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateWindowSize();
@@ -1028,7 +1067,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
   @override
   void dispose() {
-    _uniLinksSubscription?.cancel();
     Get.delete<RxBool>(tag: 'stop-service');
     _updateTimer?.cancel();
     _settingsWorker?.dispose();

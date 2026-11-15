@@ -17,6 +17,7 @@ import '../../common/widgets/login.dart';
 import '../../consts.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
+import '../../models/link_desk_auth.dart';
 import '../widgets/deploy_dialog.dart';
 import '../../models/shortcut_model.dart';
 import '../widgets/dialog.dart';
@@ -760,6 +761,21 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                     loginDialog();
                   } else {
                     logOutConfirmDialog();
+                  }
+                },
+              ),
+              SettingsTile(
+                title: Obx(() => Text(
+                    Get.find<LinkDeskAuthService>().isSignedIn
+                        ? 'LinkDesk Logout'
+                        : 'LinkDesk Login')),
+                leading: const Icon(Icons.link),
+                onPressed: (context) async {
+                  final auth = Get.find<LinkDeskAuthService>();
+                  if (auth.isSignedIn) {
+                    await auth.logout();
+                  } else {
+                    await auth.startOidcLogin();
                   }
                 },
               ),

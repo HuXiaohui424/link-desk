@@ -1131,6 +1131,7 @@ impl Client {
                             rr.uuid,
                             rr.relay_server,
                             &key,
+                            &token,
                             conn_type,
                             my_addr.is_ipv4(),
                         );
@@ -1848,7 +1849,7 @@ impl Client {
         if !succeed {
             bail!("Timeout");
         }
-        Self::create_relay(peer, uuid, relay_server, key, conn_type, ipv4).await
+        Self::create_relay(peer, uuid, relay_server, key, token, conn_type, ipv4).await
     }
 
     /// Create a relay connection to the server.
@@ -1857,6 +1858,7 @@ impl Client {
         uuid: String,
         relay_server: String,
         key: &str,
+        token: &str,
         conn_type: ConnType,
         ipv4: bool,
     ) -> ResultType<Stream> {
@@ -1874,6 +1876,7 @@ impl Client {
         msg_out.set_request_relay(RequestRelay {
             licence_key: key.to_owned(),
             id: peer.to_owned(),
+            token: token.to_owned(),
             uuid,
             conn_type: conn_type.into(),
             ..Default::default()

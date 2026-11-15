@@ -195,6 +195,9 @@ pub fn session_start(
     session_id: SessionID,
     id: String,
 ) -> ResultType<()> {
+    if crate::common::link_desk_auth_required() && !crate::common::link_desk_is_authenticated() {
+        hbb_common::bail!("Link-desk authentication is required");
+    }
     session_start_(&session_id, &id, events2ui)
 }
 
@@ -204,6 +207,9 @@ pub fn session_start_with_displays(
     id: String,
     displays: Vec<i32>,
 ) -> ResultType<()> {
+    if crate::common::link_desk_auth_required() && !crate::common::link_desk_is_authenticated() {
+        hbb_common::bail!("Link-desk authentication is required");
+    }
     session_start_(&session_id, &id, events2ui)?;
 
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
