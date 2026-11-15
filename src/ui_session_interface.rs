@@ -1984,7 +1984,7 @@ pub async fn io_loop<T: InvokeUiSession>(handler: Session<T>, round: u32) {
         .link_desk_ticket
         .clone()
         .unwrap_or_else(|| LocalConfig::get_option("access_token"));
-    log::info!("LinkDesk rendezvous token present: {}", !token.is_empty());
+    log::trace!("LinkDesk rendezvous token present: {}", !token.is_empty());
     let key = crate::get_key(false).await;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     if handler.is_port_forward() {

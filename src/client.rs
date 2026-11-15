@@ -969,7 +969,7 @@ impl Client {
             webrtc_sdp_offer,
             ..Default::default()
         });
-        log::info!("Rendezvous punch ticket present: {}", !token.is_empty());
+        log::trace!("Rendezvous punch ticket present: {}", !token.is_empty());
         let webrtc_session_key = webrtc_offerer
             .as_ref()
             .and_then(|guard| guard.stream())
