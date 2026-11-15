@@ -969,6 +969,7 @@ impl Client {
             webrtc_sdp_offer,
             ..Default::default()
         });
+        log::info!("Rendezvous punch ticket present: {}", !token.is_empty());
         let webrtc_session_key = webrtc_offerer
             .as_ref()
             .and_then(|guard| guard.stream())
@@ -2858,6 +2859,7 @@ pub struct LoginConfigHandler {
     pub version: i64,
     features: Option<Features>,
     pub session_id: u64, // used for local <-> server communication
+    pub(crate) link_desk_ticket: Option<String>,
     pub supported_encoding: SupportedEncoding,
     restarting_remote_device: bool,
     // Start time of the restart grace window. On Windows the peer may briefly
@@ -2967,6 +2969,9 @@ impl LoginConfigHandler {
         self.remember = !config.password.is_empty();
         self.config = config;
 
+        self.link_desk_ticket = conn_token.clone().filter(|value| {
+            serde_json::from_str::<ConnToken>(value).is_err()
+        });
         let conn_token = conn_token
             .map(|x| serde_json::from_str::<ConnToken>(&x).ok())
             .flatten();
