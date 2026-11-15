@@ -2738,7 +2738,7 @@ pub fn verify_login(_raw: &str, _id: &str) -> bool {
 }
 
 pub fn link_desk_auth_required() -> bool {
-    !LocalConfig::get_option("link-desk-auth-required").eq_ignore_ascii_case("N")
+    true
 }
 
 pub fn link_desk_is_authenticated() -> bool {

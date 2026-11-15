@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:back_button_interceptor/back_button_interceptor.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -1610,7 +1609,13 @@ Future<void> initGlobalFFI() async {
   debugPrint("_globalFFI init end");
   // after `put`, can also be globally found by Get.find<FFI>();
   Get.put<FFI>(_globalFFI, permanent: true);
-  Get.put<LinkDeskAuthService>(LinkDeskAuthService(), permanent: true);
+  Get.put<LinkDeskAuthService>(
+    LinkDeskAuthService(
+      onSignedIn: gFFI.serverModel.startService,
+      onSignedOut: gFFI.serverModel.stopService,
+    ),
+    permanent: true,
+  );
 }
 
 String translate(String name) {
@@ -2322,16 +2327,10 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
       }
     }
   } else if (uri != null) {
-    if (_handleLinkDeskOidcCallback(uri)) {
-      return true;
-    }
     args = urlLinkToCmdArgs(uri);
   } else if (uriString != null) {
     final uri = Uri.tryParse(uriString);
     if (uri != null) {
-      if (_handleLinkDeskOidcCallback(uri)) {
-        return true;
-      }
       args = urlLinkToCmdArgs(uri);
     }
   }
@@ -2499,31 +2498,14 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
   return false;
 }
 
-bool _handleLinkDeskOidcCallback(Uri uri) {
-  if (uri.scheme != 'linkdesk' ||
-      uri.host != 'oidc' ||
-      uri.path != '/callback') {
-    return false;
-  }
-  final code = uri.queryParameters['code'];
-  final state = uri.queryParameters['state'];
-  if (code == null || state == null || code.isEmpty || state.isEmpty) {
-    showToast(translate('Failed'));
-    return true;
-  }
-  unawaited(() async {
-    final auth = Get.find<LinkDeskAuthService>();
-    if (await auth.exchangeOidcCode(code: code, state: state)) {
-      await auth.restore();
-      showToast(translate('Successful'));
-    } else {
-      showToast(translate('Failed'));
-    }
-  }());
-  return true;
+bool isLinkDeskUriScheme(String scheme) {
+  return RegExp(r'^linkdesk(?:-[a-zA-Z0-9_-]+)?$').hasMatch(scheme);
 }
 
 List<String>? urlLinkToCmdArgs(Uri uri) {
+  if (!isLinkDeskUriScheme(uri.scheme)) {
+    return null;
+  }
   String? command;
   String? id;
   final options = [
@@ -2540,7 +2522,6 @@ List<String>? urlLinkToCmdArgs(Uri uri) {
       uri.path.split('').every((char) => char == '/')) {
     return [];
   } else if (uri.authority == "connection" && uri.path.startsWith("/new/")) {
-    // For compatibility
     command = '--connect';
     id = uri.path.substring("/new/".length);
   } else if (uri.authority == "config") {
@@ -2550,7 +2531,7 @@ List<String>? urlLinkToCmdArgs(Uri uri) {
               'Y';
       if (!allowDeepLinkServerSettings) {
         debugPrint(
-            "Ignore rustdesk://config because $kOptionAllowDeepLinkServerSettings is not enabled.");
+            "Ignore linkdesk://config because $kOptionAllowDeepLinkServerSettings is not enabled.");
         // Keep the user-facing error generic; detailed rejection reason is in debug logs.
         // Delay toast to avoid missing overlay during cold-start deeplink handling.
         Timer(Duration(seconds: 1), () {
@@ -2571,7 +2552,7 @@ List<String>? urlLinkToCmdArgs(Uri uri) {
           bind.mainGetBuildinOption(key: kOptionAllowDeepLinkPassword) == 'Y';
       if (!allowDeepLinkPassword) {
         debugPrint(
-            "Ignore rustdesk://password because $kOptionAllowDeepLinkPassword is not enabled.");
+            "Ignore linkdesk://password because $kOptionAllowDeepLinkPassword is not enabled.");
         // Keep the user-facing error generic; detailed rejection reason is in debug logs.
         // Delay toast to avoid missing overlay during cold-start deeplink handling.
         Timer(Duration(seconds: 1), () {
@@ -2596,9 +2577,9 @@ List<String>? urlLinkToCmdArgs(Uri uri) {
   } else if (uri.authority.length > 2 &&
       (uri.path.length <= 1 ||
           (uri.path == '/r' || uri.path.startsWith('/r@')))) {
-    // rustdesk://<connect-id>
-    // rustdesk://<connect-id>/r
-    // rustdesk://<connect-id>/r@<server>
+    // linkdesk://<connect-id>
+    // linkdesk://<connect-id>/r
+    // linkdesk://<connect-id>/r@<server>
     command = '--connect';
     id = uri.authority;
     if (uri.path.length > 1) {
@@ -2690,19 +2671,24 @@ connectMainDesktop(String id,
     String loginMethod = ''}) async {
   final linkDeskAuth = Get.find<LinkDeskAuthService>();
   if (!linkDeskAuth.canStartRemoteConnection()) {
-    if (linkDeskAuth.enforceAuth) {
-      await linkDeskAuth.startOidcLogin();
-    }
+    await linkDeskAuth.startOidcLogin();
     showToast(translate('Login'));
     return;
   }
-  if (linkDeskAuth.enforceAuth) {
-    final ticket = await linkDeskAuth.authorizeConnection(id);
-    if (ticket == null) {
+  if (linkDeskAuth.isSignedIn && (connToken == null || connToken.isEmpty)) {
+    final mode = isFileTransfer
+        ? 'file_transfer'
+        : isTcpTunneling
+            ? 'port_forward'
+            : null;
+    final authorization =
+        await linkDeskAuth.authorizeConnection(id, mode: mode);
+    if (authorization == null) {
       showToast(translate('Failed'));
       return;
     }
-    connToken = ticket;
+    connToken = authorization.ticket;
+    id = authorization.targetDeviceId;
   }
   if (isFileTransfer) {
     await rustDeskWinManager.newFileTransfer(id,
@@ -2760,6 +2746,27 @@ connect(BuildContext context, String id,
     bool? isSharedPassword,
     String loginMethod = ''}) async {
   if (id == '') return;
+  final linkDeskAuth = Get.find<LinkDeskAuthService>();
+  if (!linkDeskAuth.canStartRemoteConnection()) {
+    await linkDeskAuth.startOidcLogin();
+    showToast(translate('Login'));
+    return;
+  }
+  if (connToken == null || connToken.isEmpty) {
+    final mode = isFileTransfer
+        ? 'file_transfer'
+        : isTcpTunneling
+            ? 'port_forward'
+            : null;
+    final authorization =
+        await linkDeskAuth.authorizeConnection(id, mode: mode);
+    if (authorization == null) {
+      showToast(translate('Failed'));
+      return;
+    }
+    connToken = authorization.ticket;
+    id = authorization.targetDeviceId;
+  }
   if (!isDesktop || desktopType == DesktopType.main) {
     try {
       if (Get.isRegistered<IDTextEditingController>()) {
@@ -2819,7 +2826,8 @@ connect(BuildContext context, String id,
                     id: id,
                     loginMethod: loginMethod,
                     password: password,
-                    isSharedPassword: isSharedPassword),
+                    isSharedPassword: isSharedPassword,
+                    connToken: connToken),
           ),
         );
       } else {
@@ -2831,7 +2839,8 @@ connect(BuildContext context, String id,
                 loginMethod: loginMethod,
                 password: password,
                 isSharedPassword: isSharedPassword,
-                forceRelay: forceRelay),
+                forceRelay: forceRelay,
+                connToken: connToken),
           ),
         );
       }
@@ -2848,6 +2857,7 @@ connect(BuildContext context, String id,
               toolbarState: ToolbarState(),
               password: password,
               isSharedPassword: isSharedPassword,
+              connToken: connToken,
             ),
           ),
         );
@@ -2860,7 +2870,8 @@ connect(BuildContext context, String id,
                 loginMethod: loginMethod,
                 password: password,
                 isSharedPassword: isSharedPassword,
-                forceRelay: forceRelay),
+                forceRelay: forceRelay,
+                connToken: connToken),
           ),
         );
       }
@@ -2874,6 +2885,7 @@ connect(BuildContext context, String id,
             password: password,
             isSharedPassword: isSharedPassword,
             forceRelay: forceRelay,
+            connToken: connToken,
           ),
         ),
       );
@@ -3032,7 +3044,7 @@ Future<void> onActiveWindowChanged() async {
     } catch (err) {
       debugPrintStack(label: "$err");
     } finally {
-      debugPrint("Start closing RustDesk...");
+      debugPrint("Start closing LinkDesk...");
       await windowManager.setPreventClose(false);
       await windowManager.close();
       if (isMacOS) {
@@ -3926,9 +3938,6 @@ Widget loadPowered(BuildContext context) {
   return MouseRegion(
     cursor: SystemMouseCursors.click,
     child: GestureDetector(
-      onTap: () {
-        launchUrl(Uri.parse('https://rustdesk.com'));
-      },
       child: Opacity(
           opacity: 0.5,
           child: Text(

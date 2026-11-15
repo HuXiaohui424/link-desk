@@ -102,7 +102,9 @@ async fn another_connection_cannot_supply_this_streams_token(
     let (remote, _) = listener.accept().await.unwrap();
     let mut peer = Stream::Tcp(FramedStream::from(socket, addr));
     let mut remote = Stream::Tcp(FramedStream::from(remote, addr));
-    let login = Arc::new(RwLock::new(LoginConfigHandler::default()));
+    let mut secondary_login = LoginConfigHandler::default();
+    secondary_login.id = uuid::Uuid::new_v4().to_string();
+    let login = Arc::new(RwLock::new(secondary_login));
     let mut old_connection = crate::trusted_devices::client::Session::new(
         &login.read().unwrap(),
         peer.is_secured(),

@@ -751,15 +751,15 @@ def build_flutter_deb(version, features):
     system2(
         f'cp -r {flutter_build_dir}/* tmpdeb/usr/share/rustdesk/')
     system2(
-        'cp ../res/rustdesk.service tmpdeb/usr/share/rustdesk/files/systemd/')
+        'cp ../res/linkdesk.service tmpdeb/usr/share/rustdesk/files/systemd/')
     system2(
         'cp ../res/128x128@2x.png tmpdeb/usr/share/icons/hicolor/256x256/apps/rustdesk.png')
     system2(
         'cp ../res/scalable.svg tmpdeb/usr/share/icons/hicolor/scalable/apps/rustdesk.svg')
     system2(
-        'cp ../res/rustdesk.desktop tmpdeb/usr/share/applications/rustdesk.desktop')
+        'cp ../res/linkdesk.desktop tmpdeb/usr/share/applications/linkdesk.desktop')
     system2(
-        'cp ../res/rustdesk-link.desktop tmpdeb/usr/share/applications/rustdesk-link.desktop')
+        'cp ../res/linkdesk-link.desktop tmpdeb/usr/share/applications/linkdesk-link.desktop')
     system2(
         "echo \"#!/bin/sh\" >> tmpdeb/usr/share/rustdesk/files/polkit && chmod a+x tmpdeb/usr/share/rustdesk/files/polkit")
     # Bundle libdrmtap.so only when this build actually enabled the `drm` feature, so stock packages
@@ -859,15 +859,15 @@ def build_deb_from_folder(version, binary_folder, want_drm=False):
     system2(
         f'cp -r ../{binary_folder}/* tmpdeb/usr/share/rustdesk/')
     system2(
-        'cp ../res/rustdesk.service tmpdeb/usr/share/rustdesk/files/systemd/')
+        'cp ../res/linkdesk.service tmpdeb/usr/share/rustdesk/files/systemd/')
     system2(
         'cp ../res/128x128@2x.png tmpdeb/usr/share/icons/hicolor/256x256/apps/rustdesk.png')
     system2(
         'cp ../res/scalable.svg tmpdeb/usr/share/icons/hicolor/scalable/apps/rustdesk.svg')
     system2(
-        'cp ../res/rustdesk.desktop tmpdeb/usr/share/applications/rustdesk.desktop')
+        'cp ../res/linkdesk.desktop tmpdeb/usr/share/applications/linkdesk.desktop')
     system2(
-        'cp ../res/rustdesk-link.desktop tmpdeb/usr/share/applications/rustdesk-link.desktop')
+        'cp ../res/linkdesk-link.desktop tmpdeb/usr/share/applications/linkdesk-link.desktop')
     system2(
         "echo \"#!/bin/sh\" >> tmpdeb/usr/share/rustdesk/files/polkit && chmod a+x tmpdeb/usr/share/rustdesk/files/polkit")
     # Where the capture library comes from for a `--package <folder> --drm` build. Two shapes are
@@ -1155,15 +1155,15 @@ def main():
                 system2('mkdir -p tmpdeb/usr/share/icons/hicolor/256x256/apps/')
                 system2('mkdir -p tmpdeb/usr/share/icons/hicolor/scalable/apps/')
                 system2(
-                    'cp res/rustdesk.service tmpdeb/usr/share/rustdesk/files/systemd/')
+                    'cp res/linkdesk.service tmpdeb/usr/share/rustdesk/files/systemd/')
                 system2(
                     'cp res/128x128@2x.png tmpdeb/usr/share/icons/hicolor/256x256/apps/rustdesk.png')
                 system2(
                     'cp res/scalable.svg tmpdeb/usr/share/icons/hicolor/scalable/apps/rustdesk.svg')
                 system2(
-                    'cp res/rustdesk.desktop tmpdeb/usr/share/applications/rustdesk.desktop')
+                    'cp res/linkdesk.desktop tmpdeb/usr/share/applications/linkdesk.desktop')
                 system2(
-                    'cp res/rustdesk-link.desktop tmpdeb/usr/share/applications/rustdesk-link.desktop')
+                    'cp res/linkdesk-link.desktop tmpdeb/usr/share/applications/linkdesk-link.desktop')
                 os.system('cp -a DEBIAN/* tmpdeb/DEBIAN/')
                 system2('strip tmpdeb/usr/bin/rustdesk')
                 system2('mkdir -p tmpdeb/usr/share/rustdesk')

@@ -236,7 +236,7 @@ pub trait MouseControllable {
     /// ```no_run
     /// use enigo::*;
     /// let mut enigo = Enigo::new();
-    /// enigo.mouse_scroll_x(2);
+    /// enigo.mouse_scroll_x(2, false);
     /// ```
     fn mouse_scroll_x(&mut self, length: i32);
 
@@ -253,7 +253,7 @@ pub trait MouseControllable {
     /// ```no_run
     /// use enigo::*;
     /// let mut enigo = Enigo::new();
-    /// enigo.mouse_scroll_y(2);
+    /// enigo.mouse_scroll_y(2, false);
     /// ```
     fn mouse_scroll_y(&mut self, length: i32);
 }

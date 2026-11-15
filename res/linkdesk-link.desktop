@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=LinkDesk
+NoDisplay=true
+MimeType=x-scheme-handler/linkdesk;
+TryExec=linkdesk
+Exec=linkdesk %u
+Icon=linkdesk
+Terminal=false
+Type=Application
+StartupNotify=false
+StartupWMClass=linkdesk

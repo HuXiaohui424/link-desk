@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import 'platform_model.dart';
 
@@ -64,12 +66,14 @@ class LinkDeskUser {
 
 class LinkDeskDevice {
   final String deviceId;
+  final String numericId;
   final String name;
   final bool online;
   final DateTime? lastSeenAt;
 
   const LinkDeskDevice({
     required this.deviceId,
+    required this.numericId,
     required this.name,
     required this.online,
     required this.lastSeenAt,
@@ -78,6 +82,7 @@ class LinkDeskDevice {
   factory LinkDeskDevice.fromJson(Map<String, dynamic> json) {
     return LinkDeskDevice(
       deviceId: '${json['device_id'] ?? ''}',
+      numericId: '${json['numeric_id'] ?? ''}',
       name: '${json['name'] ?? ''}',
       online: json['online'] == true,
       lastSeenAt: DateTime.tryParse('${json['last_seen_at'] ?? ''}'),
@@ -85,15 +90,34 @@ class LinkDeskDevice {
   }
 }
 
+class LinkDeskConnectionAuthorization {
+  final String ticket;
+  final String targetDeviceId;
+
+  const LinkDeskConnectionAuthorization({
+    required this.ticket,
+    required this.targetDeviceId,
+  });
+}
+
 enum LinkDeskAuthState { signedOut, restoring, signedIn }
 
 class LinkDeskAuthService extends GetxService {
+  LinkDeskAuthService({
+    required this.onSignedIn,
+    required this.onSignedOut,
+  });
+
+  final Future<void> Function() onSignedIn;
+  final Future<void> Function() onSignedOut;
+
   static const _serverUrlKey = 'link-desk-server-url';
   static const _accessTokenKey = 'link-desk-access-token';
   static const _refreshTokenKey = 'link-desk-refresh-token';
   static const _userKey = 'link-desk-user';
   static const _deviceIdKey = 'link-desk-device-id';
-  static const _enforceAuthKey = 'link-desk-auth-required';
+  static const _installationIdKey = 'link-desk-installation-id';
+  static const _registrationSecretKey = 'link-desk-registration-secret';
 
   final state = LinkDeskAuthState.signedOut.obs;
   final user = Rxn<LinkDeskUser>();
@@ -103,21 +127,24 @@ class LinkDeskAuthService extends GetxService {
 
   String get serverUrl {
     final configured = bind.mainGetLocalOption(key: _serverUrlKey).trim();
-    return configured.isEmpty ? 'http://127.0.0.1:21119' : configured;
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+    final environment = bind.mainGetEnv(key: 'LINKDESK_SERVER_URL').trim();
+    return environment.isEmpty ? 'http://127.0.0.1:22119' : environment;
   }
 
   String get _accessToken =>
       bind.mainGetLocalOption(key: _accessTokenKey).trim();
   String get _refreshToken =>
       bind.mainGetLocalOption(key: _refreshTokenKey).trim();
+  String get _registrationSecret =>
+      bind.mainGetLocalOption(key: _registrationSecretKey).trim();
 
   bool get isSignedIn =>
       state.value == LinkDeskAuthState.signedIn && _accessToken.isNotEmpty;
 
-  bool get enforceAuth =>
-      bind.mainGetLocalOption(key: _enforceAuthKey).toUpperCase() != 'N';
-
-  bool canStartRemoteConnection() => !enforceAuth || isSignedIn;
+  bool canStartRemoteConnection() => isSignedIn;
 
   Future<void> restore() async {
     state.value = LinkDeskAuthState.restoring;
@@ -129,17 +156,9 @@ class LinkDeskAuthService extends GetxService {
       return;
     }
     if (accessToken.isNotEmpty && await _loadCurrentUser(accessToken)) {
-      await loadDevices();
-      if (devices.isEmpty) {
-        await bindDevice();
-      }
       return;
     }
     if (refreshToken.isNotEmpty && await refresh()) {
-      await loadDevices();
-      if (devices.isEmpty) {
-        await bindDevice();
-      }
       return;
     }
     await logout();
@@ -168,7 +187,8 @@ class LinkDeskAuthService extends GetxService {
     return true;
   }
 
-  Future<String?> startOidcLogin() async {
+  Future<bool> startOidcLogin() async {
+    error.value = '';
     final response = await _request(
       'GET',
       '/api/auth/oidc/start',
@@ -176,39 +196,42 @@ class LinkDeskAuthService extends GetxService {
     );
     if (response == null || response.statusCode != 200) {
       error.value = _errorMessage(response);
-      return null;
+      return false;
     }
     final data = _decode(response);
     final url = '${data['authorization_url'] ?? ''}';
-    if (url.isEmpty) {
-      error.value = 'OIDC authorization URL is empty';
-      return null;
+    final state = '${data['state'] ?? ''}';
+    if (url.isEmpty || state.isEmpty) {
+      error.value = 'OIDC login response is incomplete';
+      return false;
     }
     final launched =
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     if (!launched) {
       error.value = 'Failed to open OIDC authorization URL';
-      return null;
-    }
-    return '${data['state'] ?? ''}';
-  }
-
-  Future<bool> exchangeOidcCode({
-    required String code,
-    required String state,
-  }) async {
-    final response = await _request(
-      'POST',
-      '/api/auth/oidc/exchange-code',
-      body: {'code': code, 'state': state},
-      authenticated: false,
-    );
-    if (response == null || response.statusCode != 200) {
-      error.value = _errorMessage(response);
       return false;
     }
-    await _saveAuthResponse(_decode(response));
-    return true;
+    for (var attempt = 0; attempt < 1200; attempt++) {
+      if (isSignedIn) {
+        return true;
+      }
+      final status = await _request(
+        'GET',
+        '/api/auth/oidc/status?state=${Uri.encodeQueryComponent(state)}',
+        authenticated: false,
+      );
+      if (status?.statusCode == 200) {
+        await _saveAuthResponse(_decode(status!));
+        return isSignedIn;
+      }
+      if (status != null && status.statusCode != 202) {
+        error.value = _errorMessage(status);
+        return false;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    error.value = 'OIDC login timed out';
+    return false;
   }
 
   Future<bool> refresh() async {
@@ -230,11 +253,20 @@ class LinkDeskAuthService extends GetxService {
   }
 
   Future<void> logout() async {
+    await onSignedOut();
+    if (deviceId.value.isNotEmpty && _registrationSecret.isNotEmpty) {
+      await _request(
+        'POST',
+        '/api/devices/${Uri.encodeComponent(deviceId.value)}/revoke-registration',
+        body: {'registration_secret': _registrationSecret},
+      );
+    }
     await _request('POST', '/api/auth/logout');
     await bind.mainSetLocalOption(key: _accessTokenKey, value: '');
     await bind.mainSetLocalOption(key: _refreshTokenKey, value: '');
     await bind.mainSetLocalOption(key: _userKey, value: '');
     await bind.mainSetLocalOption(key: _deviceIdKey, value: '');
+    await bind.mainSetLocalOption(key: _registrationSecretKey, value: '');
     _clearMemory();
   }
 
@@ -262,21 +294,31 @@ class LinkDeskAuthService extends GetxService {
   }
 
   Future<bool> bindDevice({String? name}) async {
+    var installationId =
+        bind.mainGetLocalOption(key: _installationIdKey).trim();
+    if (installationId.isEmpty) {
+      installationId = const Uuid().v4();
+      await bind.mainSetLocalOption(
+          key: _installationIdKey, value: installationId);
+    }
     final response = await _request(
       'POST',
       '/api/devices/bind',
       body: {
         if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        'installation_id': installationId,
       },
     );
-    if (response == null || response.statusCode != 201) {
+    if (response == null ||
+        (response.statusCode != 200 && response.statusCode != 201)) {
       error.value = _errorMessage(response);
       return false;
     }
     final data = _decode(response);
     final boundDevice = LinkDeskDevice(
       deviceId: '${data['device_id'] ?? ''}',
-      name: name?.trim().isNotEmpty == true ? name!.trim() : 'Link-desk device',
+      numericId: '${data['numeric_id'] ?? ''}',
+      name: name?.trim().isNotEmpty == true ? name!.trim() : 'LinkDesk device',
       online: false,
       lastSeenAt: null,
     );
@@ -286,40 +328,74 @@ class LinkDeskAuthService extends GetxService {
     deviceId.value = boundDevice.deviceId;
     await bind.mainSetLocalOption(
         key: _deviceIdKey, value: boundDevice.deviceId);
-    return boundDevice.deviceId.isNotEmpty;
+    await bind.mainSetLocalOption(
+        key: _registrationSecretKey,
+        value: '${data['registration_secret'] ?? ''}');
+    return boundDevice.deviceId.isNotEmpty && _registrationSecret.isNotEmpty;
   }
 
   Future<bool> heartbeat() async {
-    if (!isSignedIn || deviceId.value.isEmpty) {
+    if (!isSignedIn) {
       return false;
     }
-    final response = await _request(
-      'POST',
-      '/api/devices/${Uri.encodeComponent(deviceId.value)}/heartbeat',
-    );
+    if (deviceId.value.isEmpty || _registrationSecret.isEmpty) {
+      if (!await bindDevice()) {
+        return false;
+      }
+    }
+    Future<http.Response?> sendHeartbeat() => _request(
+          'POST',
+          '/api/devices/${Uri.encodeComponent(deviceId.value)}/heartbeat',
+          body: {'registration_secret': _registrationSecret},
+        );
+    var response = await sendHeartbeat();
     if (response == null || response.statusCode != 204) {
       if (response?.statusCode == 401) {
-        await refresh();
+        if (await refresh()) {
+          response = await sendHeartbeat();
+          if (response?.statusCode == 204) {
+            return true;
+          }
+        }
+      } else if (response?.statusCode == 404) {
+        await bind.mainSetLocalOption(key: _registrationSecretKey, value: '');
+        await bindDevice();
       }
       return false;
     }
     return true;
   }
 
-  Future<String?> authorizeConnection(String targetDeviceId) async {
+  Future<LinkDeskConnectionAuthorization?> authorizeConnection(
+    String targetDeviceId, {
+    String? mode,
+  }) async {
     if (!isSignedIn || targetDeviceId.trim().isEmpty) {
       return null;
     }
+    final path = StringBuffer(
+        '/api/devices/${Uri.encodeComponent(targetDeviceId.trim())}/authorize');
+    if (mode != null && mode.isNotEmpty) {
+      path.write('?mode=${Uri.encodeQueryComponent(mode)}');
+    }
     final response = await _request(
       'POST',
-      '/api/devices/${Uri.encodeComponent(targetDeviceId.trim())}/authorize',
+      path.toString(),
     );
     if (response == null || response.statusCode != 200) {
       error.value = _errorMessage(response);
       return null;
     }
-    final ticket = '${_decode(response)['ticket'] ?? ''}';
-    return ticket.isEmpty ? null : ticket;
+    final data = _decode(response);
+    final ticket = '${data['ticket'] ?? ''}';
+    final rendezvousDeviceId = '${data['target_device_id'] ?? ''}';
+    if (ticket.isEmpty || rendezvousDeviceId.isEmpty) {
+      return null;
+    }
+    return LinkDeskConnectionAuthorization(
+      ticket: ticket,
+      targetDeviceId: rendezvousDeviceId,
+    );
   }
 
   Future<bool> _loadCurrentUser(String token) async {
@@ -332,7 +408,7 @@ class LinkDeskAuthService extends GetxService {
     if (response == null || response.statusCode != 200) {
       return false;
     }
-    _setUser(LinkDeskUser.fromJson(_decode(response)));
+    await _setUser(LinkDeskUser.fromJson(_decode(response)));
     return true;
   }
 
@@ -347,17 +423,28 @@ class LinkDeskAuthService extends GetxService {
       return;
     }
     await bind.mainSetLocalOption(key: _userKey, value: jsonEncode(userJson));
-    _setUser(LinkDeskUser.fromJson(userJson));
+    await _setUser(LinkDeskUser.fromJson(userJson));
     state.refresh();
-    if (await loadDevices() && devices.isEmpty) {
-      await bindDevice();
-    }
   }
 
-  void _setUser(LinkDeskUser value) {
+  Future<void> _setUser(LinkDeskUser value) async {
+    final wasSignedIn = isSignedIn;
     user.value = value;
     state.value = LinkDeskAuthState.signedIn;
     error.value = '';
+    if (!wasSignedIn) {
+      if (!await loadDevices()) {
+        await logout();
+        return;
+      }
+      if (deviceId.value.isEmpty || _registrationSecret.isEmpty) {
+        if (!await bindDevice()) {
+          await logout();
+          return;
+        }
+      }
+      await onSignedIn();
+    }
   }
 
   void _clearMemory() {

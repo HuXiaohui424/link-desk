@@ -93,147 +93,150 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanStart: (_) => windowManager.startDragging(),
-                  child: const SizedBox(height: 30),
-                ),
-                const SizedBox(height: 18),
-                _buildLinkDeskAccount(context),
-                const SizedBox(height: 20),
-                Builder(builder: (context) {
-                  final selected =
-                      _selectedMainPage == null && _selectedPeerTab == null;
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.12)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: ListTile(
-                      dense: true,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12),
-                      minLeadingWidth: 24,
-                      horizontalTitleGap: 8,
-                      leading: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: Center(
-                          child: Icon(Icons.home_outlined,
-                            color: selected
-                                ? Theme.of(context).colorScheme.primary
-                                : textColor?.withOpacity(0.65)),
-                        ),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanStart: (_) => windowManager.startDragging(),
+                    child: const SizedBox(height: 30),
+                  ),
+                  const SizedBox(height: 18),
+                  _buildLinkDeskAccount(context),
+                  const SizedBox(height: 20),
+                  Builder(builder: (context) {
+                    final selected =
+                        _selectedMainPage == null && _selectedPeerTab == null;
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      title: Text(translate('Home')),
-                      selected: selected,
-                      selectedColor: Theme.of(context).colorScheme.primary,
-                      onTap: () => setState(() {
-                        _selectedMainPage = null;
-                        _selectedPeerTab = null;
-                      }),
-                    ),
-                  );
-                }),
-                ChangeNotifierProvider.value(
-                  value: gFFI.peerTabModel,
-                  child: Consumer<PeerTabModel>(
-                    builder: (context, model, _) => Column(
-                      children: model.visibleEnabledOrderedIndexs.map((index) {
-                        final selected = _selectedMainPage == null &&
-                            _selectedPeerTab == index;
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withOpacity(0.12)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: ListTile(
-                            dense: true,
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 12),
-                            minLeadingWidth: 24,
-                            horizontalTitleGap: 8,
-                            leading: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: Center(
-                                  child: Icon(
-                                model.tabIcon(index),
-                                size: 24,
+                      child: ListTile(
+                        dense: true,
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        minLeadingWidth: 24,
+                        horizontalTitleGap: 8,
+                        leading: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Center(
+                            child: Icon(Icons.home_outlined,
                                 color: selected
                                     ? Theme.of(context).colorScheme.primary
-                                    : textColor?.withOpacity(0.65),
-                              )),
-                            ),
-                            title: Text(model.tabTooltip(index)),
-                            selected: selected,
-                            selectedColor:
-                                Theme.of(context).colorScheme.primary,
-                            onTap: () {
-                              model.setCurrentTab(index);
-                              bind.setLocalFlutterOption(
-                                  k: kOptionPeerTabIndex, v: index.toString());
-                              setState(() {
-                                _selectedMainPage = null;
-                                _selectedPeerTab = index;
-                              });
-                            },
+                                    : textColor?.withOpacity(0.65)),
                           ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                if (!bind.isDisableSettings())
-                  Container(
-                    margin: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
-                    decoration: BoxDecoration(
-                      color: _selectedMainPage != null
-                          ? Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.12)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: ListTile(
-                      dense: true,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12),
-                      minLeadingWidth: 24,
-                      horizontalTitleGap: 8,
-                      leading: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: Center(
-                          child: Icon(Icons.settings_outlined,
-                              color: _selectedMainPage != null
-                                  ? Theme.of(context).colorScheme.primary
-                                  : textColor),
                         ),
+                        title: Text(translate('Home')),
+                        selected: selected,
+                        selectedColor: Theme.of(context).colorScheme.primary,
+                        onTap: () => setState(() {
+                          _selectedMainPage = null;
+                          _selectedPeerTab = null;
+                        }),
                       ),
-                      title: Text(translate('Settings')),
-                      selected: _selectedMainPage != null,
-                      selectedColor: Theme.of(context).colorScheme.primary,
-                      onTap: () => setState(() {
-                        _selectedMainPage = SettingsTabKey.general;
-                        DesktopTabPage.onAddSetting();
-                      }),
+                    );
+                  }),
+                  ChangeNotifierProvider.value(
+                    value: gFFI.peerTabModel,
+                    child: Consumer<PeerTabModel>(
+                      builder: (context, model, _) => Column(
+                        children:
+                            model.visibleEnabledOrderedIndexs.map((index) {
+                          final selected = _selectedMainPage == null &&
+                              _selectedPeerTab == index;
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withOpacity(0.12)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: ListTile(
+                              dense: true,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              minLeadingWidth: 24,
+                              horizontalTitleGap: 8,
+                              leading: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Center(
+                                    child: Icon(
+                                  model.tabIcon(index),
+                                  size: 24,
+                                  color: selected
+                                      ? Theme.of(context).colorScheme.primary
+                                      : textColor?.withOpacity(0.65),
+                                )),
+                              ),
+                              title: Text(model.tabTooltip(index)),
+                              selected: selected,
+                              selectedColor:
+                                  Theme.of(context).colorScheme.primary,
+                              onTap: () {
+                                model.setCurrentTab(index);
+                                bind.setLocalFlutterOption(
+                                    k: kOptionPeerTabIndex,
+                                    v: index.toString());
+                                setState(() {
+                                  _selectedMainPage = null;
+                                  _selectedPeerTab = index;
+                                });
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
+                  const Spacer(),
+                  if (!bind.isDisableSettings())
+                    Container(
+                      margin:
+                          const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+                      decoration: BoxDecoration(
+                        color: _selectedMainPage != null
+                            ? Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: ListTile(
+                        dense: true,
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        minLeadingWidth: 24,
+                        horizontalTitleGap: 8,
+                        leading: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Center(
+                            child: Icon(Icons.settings_outlined,
+                                color: _selectedMainPage != null
+                                    ? Theme.of(context).colorScheme.primary
+                                    : textColor),
+                          ),
+                        ),
+                        title: Text(translate('Settings')),
+                        selected: _selectedMainPage != null,
+                        selectedColor: Theme.of(context).colorScheme.primary,
+                        onTap: () => setState(() {
+                          _selectedMainPage = SettingsTabKey.general;
+                          DesktopTabPage.onAddSetting();
+                        }),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -247,7 +250,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     final auth = Get.find<LinkDeskAuthService>();
     return Obx(() {
       final displayName = auth.user.value?.displayName.trim();
-      final name = displayName == null || displayName.isEmpty ? '登录' : displayName;
+      final name =
+          displayName == null || displayName.isEmpty ? '登录' : displayName;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: InkWell(
@@ -387,83 +391,80 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
   buildIDBoard(BuildContext context) {
     final model = gFFI.serverModel;
-    return Container(
-      margin: const EdgeInsets.only(left: 20, right: 11),
-      height: 76,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 7),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 25,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "本设备识别码",
-                          style: TextStyle(
-                              fontSize: 14,
-                              color: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.color
-                                  ?.withOpacity(0.5)),
-                        ).marginOnly(top: 5),
-                      ],
+    final auth = Get.find<LinkDeskAuthService>();
+    return Obx(() {
+      final linkDeskId = auth.devices
+          .where((device) => device.deviceId == auth.deviceId.value)
+          .map((device) => device.numericId)
+          .firstWhere((id) => id.isNotEmpty, orElse: () => '');
+      final displayId =
+          linkDeskId.isNotEmpty ? linkDeskId : model.serverId.text;
+      return Container(
+        margin: const EdgeInsets.only(left: 20, right: 11),
+        height: 76,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 7),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 25,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "本设备识别码",
+                            style: TextStyle(
+                                fontSize: 14,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.color
+                                    ?.withOpacity(0.5)),
+                          ).marginOnly(top: 5),
+                        ],
+                      ),
                     ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onDoubleTap: () {
-                            Clipboard.setData(
-                                ClipboardData(text: model.serverId.text));
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onDoubleTap: () {
+                              Clipboard.setData(ClipboardData(text: displayId));
+                              showToast(translate("Copied"));
+                            },
+                            child: Text(displayId,
+                                style: const TextStyle(fontSize: 22)),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: translate('Copy'),
+                          icon: const Icon(Icons.copy_outlined, size: 18),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: displayId));
                             showToast(translate("Copied"));
                           },
-                          child: TextFormField(
-                            controller: model.serverId,
-                            readOnly: true,
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              filled: false,
-                              fillColor: Colors.transparent,
-                              contentPadding:
-                                  EdgeInsets.only(top: 10, bottom: 10),
-                            ),
-                            style: TextStyle(fontSize: 22),
-                          ).workaroundFreezeLinuxMint(),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          constraints:
+                              const BoxConstraints(minWidth: 28, minHeight: 28),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: translate('Copy'),
-                        icon: const Icon(Icons.copy_outlined, size: 18),
-                        onPressed: () {
-                          Clipboard.setData(
-                              ClipboardData(text: model.serverId.text));
-                          showToast(translate("Copied"));
-                        },
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                        constraints:
-                            const BoxConstraints(minWidth: 28, minHeight: 28),
-                      ),
-                    ],
-                  )
-                ],
+                      ],
+                    )
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    });
   }
 
   buildPasswordBoard(BuildContext context) {
@@ -619,32 +620,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   Widget buildHelpCards(String updateUrl) {
-    if (!bind.isCustomClient() &&
-        updateUrl.isNotEmpty &&
-        !isCardClosed &&
-        bind.mainUriPrefixSync().contains('rustdesk')) {
-      final isToUpdate = (isWindows || isMacOS) && bind.mainIsInstalled();
-      String btnText = isToUpdate ? 'Update' : 'Download';
-      GestureTapCallback onPressed = () async {
-        final Uri url = Uri.parse('https://rustdesk.com/download');
-        await launchUrl(url);
-      };
-      if (isToUpdate) {
-        onPressed = () {
-          handleUpdate(updateUrl);
-        };
-      }
-      return buildInstallCard(
-          "Status",
-          "${translate("new-version-of-{${bind.mainGetAppNameSync()}}-tip")} (${bind.mainGetNewVersion()}).",
-          btnText,
-          onPressed,
-          closeButton: true,
-          help: isToUpdate ? 'Changelog' : null,
-          link: isToUpdate
-              ? 'https://github.com/rustdesk/rustdesk/releases/tag/${bind.mainGetNewVersion()}'
-              : null);
-    }
     if (systemError.isNotEmpty) {
       return buildInstallCard("", systemError, "", () {});
     }
@@ -721,9 +696,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             "",
             () async {},
             marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
-            help: 'Help',
-            link:
-                'https://rustdesk.com/docs/en/client/linux/#permissions-issue',
             closeButton: true,
             closeOption: keyShowSelinuxHelpTip,
           ));
@@ -732,15 +704,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       if (bind.mainCurrentIsWayland()) {
         LinuxCards.add(buildInstallCard(
             "Warning", "wayland_experiment_tip", "", () async {},
-            marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
-            help: 'Help',
-            link: 'https://rustdesk.com/docs/en/client/linux/#x11-required'));
+            marginTop: LinuxCards.isEmpty ? 20.0 : 5.0));
       } else if (bind.mainIsLoginWayland()) {
         LinuxCards.add(buildInstallCard("Warning",
             "Login screen using Wayland is not supported", "", () async {},
-            marginTop: LinuxCards.isEmpty ? 20.0 : 5.0,
-            help: 'Help',
-            link: 'https://rustdesk.com/docs/en/client/linux/#login-screen'));
+            marginTop: LinuxCards.isEmpty ? 20.0 : 5.0));
       }
       if (LinuxCards.isNotEmpty) {
         return Column(
@@ -890,8 +858,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   @override
   void initState() {
     super.initState();
-    _settingsWorker = ever<SettingsTabKey?>(
-        DesktopTabPage.requestedSettingsTab, (tab) {
+    _settingsWorker =
+        ever<SettingsTabKey?>(DesktopTabPage.requestedSettingsTab, (tab) {
       if (tab != null && mounted) {
         setState(() => _selectedMainPage = tab);
       }
@@ -966,7 +934,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
     bool isChattyMethod(String methodName) {
       switch (methodName) {
-        case kWindowBumpMouse: return true;
+        case kWindowBumpMouse:
+          return true;
       }
 
       return false;
@@ -975,7 +944,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (!isChattyMethod(call.method)) {
         debugPrint(
-          "[Main] call ${call.method} with args ${call.arguments} from window $fromWindowId");
+            "[Main] call ${call.method} with args ${call.arguments} from window $fromWindowId");
       }
       if (call.method == kWindowMainWindowOnTop) {
         windowOnTop(null);
@@ -1004,9 +973,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           loginMethod: call.arguments['loginMethod'] ?? '',
         );
       } else if (call.method == kWindowBumpMouse) {
-        return RdPlatformChannel.instance.bumpMouse(
-          dx: call.arguments['dx'],
-          dy: call.arguments['dy']);
+        return RdPlatformChannel.instance
+            .bumpMouse(dx: call.arguments['dx'], dy: call.arguments['dy']);
       } else if (call.method == kWindowEventMoveTabToNewWindow) {
         final args = call.arguments.split(',');
         int? windowId;

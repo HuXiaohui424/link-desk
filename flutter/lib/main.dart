@@ -115,7 +115,7 @@ Future<void> main(List<String> args) async {
     if (isMacOS) {
       disableWindowMovable(kWindowId);
     }
-    runMainApp(true);
+    runMainApp();
   }
 }
 
@@ -143,7 +143,7 @@ void startLinkDeskHeartbeat() {
   unawaited(auth.heartbeat());
 }
 
-void runMainApp(bool startService) async {
+void runMainApp() async {
   // register uni links
   await initEnv(kAppTypeMain);
   checkUpdate();
@@ -151,14 +151,8 @@ void runMainApp(bool startService) async {
   await bind.mainCheckConnectStatus();
   await Get.find<LinkDeskAuthService>().restore();
   startLinkDeskHeartbeat();
-  listenUniLinks();
-  if (startService) {
-    gFFI.serverModel.startService();
-  }
   await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);
   gFFI.userModel.refreshCurrentUser();
-  await Get.find<LinkDeskAuthService>().restore();
-  startLinkDeskHeartbeat();
   runApp(App());
 
   bool? alwaysOnTop;
@@ -175,6 +169,7 @@ void runMainApp(bool startService) async {
     await restoreWindowPosition(WindowType.Main);
     // Check the startup argument, if we successfully handle the argument, we keep the main window hidden.
     final handledByUniLinks = await initUniLinks();
+    listenUniLinks();
     debugPrint("handled by uni links: $handledByUniLinks");
     if (handledByUniLinks || handleUriLink(cmdArgs: kBootArgs)) {
       windowManager.hide();
@@ -573,7 +568,7 @@ class LinkDeskDesktopHome extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = Get.find<LinkDeskAuthService>();
     return Obx(() {
-      if (!auth.enforceAuth || auth.isSignedIn) {
+      if (auth.isSignedIn) {
         return const DesktopTabPage();
       }
       return LinkDeskLoginPage(auth: auth);
@@ -614,49 +609,49 @@ class _LinkDeskLoginPageState extends State<LinkDeskLoginPage> {
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Obx(() {
-                final message = auth.error.value;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'LinkDesk',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '请先登录，登录后才能注册设备和远程连接。',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _loading ? null : _login,
-                        icon: _loading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.login),
-                        label: Text(_loading ? '正在打开登录页面...' : '使用 OIDC 登录'),
-                      ),
-                    ),
-                    if (message.isNotEmpty) ...[
-                      const SizedBox(height: 16),
+                  final message = auth.error.value;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Text(
-                        message,
+                        'LinkDesk',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '请先登录，登录后才能注册设备和远程连接。',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _loading ? null : _login,
+                          icon: _loading
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.login),
+                          label: Text(_loading ? '正在打开登录页面...' : '使用 OIDC 登录'),
                         ),
                       ),
+                      if (message.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          message,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                );
+                  );
                 }),
               ),
             ),

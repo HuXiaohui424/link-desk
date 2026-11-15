@@ -19,13 +19,15 @@ class FileManagerPage extends StatefulWidget {
       this.loginMethod = '',
       this.password,
       this.isSharedPassword,
-      this.forceRelay})
+      this.forceRelay,
+      this.connToken})
       : super(key: key);
   final String id;
   final String loginMethod;
   final String? password;
   final bool? isSharedPassword;
   final bool? forceRelay;
+  final String? connToken;
 
   @override
   State<StatefulWidget> createState() => _FileManagerPageState();
@@ -110,7 +112,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
           continue;
         }
         final destination =
-          PathUtil.join(importDirectory, name, importIsWindows);
+            PathUtil.join(importDirectory, name, importIsWindows);
         var overwrite = false;
         if (await File(destination).exists()) {
           final overwriteResult = await model.showFileConfirmDialog(
@@ -120,8 +122,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
           overwrite = true;
         }
         try {
-          final success = await gFFI.invokeMethod(
-              AndroidChannel.kImportFile,
+          final success = await gFFI.invokeMethod(AndroidChannel.kImportFile,
               {'uri': uri, 'path': destination, 'overwrite': overwrite});
           if (success == true) {
             imported++;
@@ -170,8 +171,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
 
   Future<void> _exportFile(Entry entry) async {
     try {
-      final exported = await _runAndroidDocumentPicker(() => gFFI
-          .invokeMethod(AndroidChannel.kExportFile, {'path': entry.path}));
+      final exported = await _runAndroidDocumentPicker(() =>
+          gFFI.invokeMethod(AndroidChannel.kExportFile, {'path': entry.path}));
       if (exported == true) {
         showToast(translate('Successful'));
       }
@@ -281,7 +282,8 @@ class _FileManagerPageState extends State<FileManagerPage> {
         loginMethod: widget.loginMethod,
         password: widget.password,
         isSharedPassword: widget.isSharedPassword,
-        forceRelay: widget.forceRelay);
+        forceRelay: widget.forceRelay,
+        connToken: widget.connToken);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       gFFI.dialogManager
           .showLoading(translate('Connecting...'), onCancel: closeConnection);
@@ -357,7 +359,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                             Icon(Icons.storage_outlined,
                                 color: Theme.of(context).iconTheme.color),
                             SizedBox(width: 5),
-                            Text(translate('RustDesk storage')),
+                            const Text('LinkDesk storage'),
                           ],
                         ),
                       ),
@@ -582,8 +584,7 @@ class _FileManagerPageState extends State<FileManagerPage> {
                     IconButton(
                       tooltip: translate("Save as"),
                       icon: Icon(Icons.save_alt),
-                      onPressed: () =>
-                          _exportFile(selectedItems!.items.single),
+                      onPressed: () => _exportFile(selectedItems!.items.single),
                     )
                   else
                     IconButton(

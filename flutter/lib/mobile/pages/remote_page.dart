@@ -74,7 +74,8 @@ class RemotePage extends StatefulWidget {
       this.loginMethod = '',
       this.password,
       this.isSharedPassword,
-      this.forceRelay})
+      this.forceRelay,
+      this.connToken})
       : super(key: key);
 
   final String id;
@@ -82,6 +83,7 @@ class RemotePage extends StatefulWidget {
   final String? password;
   final bool? isSharedPassword;
   final bool? forceRelay;
+  final String? connToken;
 
   @override
   State<RemotePage> createState() => _RemotePageState(id);
@@ -129,6 +131,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
       password: widget.password,
       isSharedPassword: widget.isSharedPassword,
       forceRelay: widget.forceRelay,
+      connToken: widget.connToken,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
@@ -584,7 +587,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   }
 
   bool _handleLocalKeyEvent(KeyEvent event) => handleMobileLocalKeyEvent(event,
-      remoteFocused: _physicalFocusNode.hasPrimaryFocus, inputModel: inputModel);
+      remoteFocused: _physicalFocusNode.hasPrimaryFocus,
+      inputModel: inputModel);
 
   Widget getRawPointerAndKeyBody(Widget child) {
     final ffiModel = Provider.of<FfiModel>(context);

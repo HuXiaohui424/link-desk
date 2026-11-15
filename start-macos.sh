@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一键准备并启动 macOS Debug 版 RustDesk。
+# 一键准备并启动 macOS Debug 版 LinkDesk。
 # 已有工具和依赖会跳过下载；每次启动都会重编，避免改了代码却还在跑旧包。
 set -euo pipefail
 
@@ -42,7 +42,7 @@ FLUTTER_VERSION="${FLUTTER_VERSION:-3.24.5}"
 VCPKG_COMMIT="${VCPKG_COMMIT:-$(python3 -c 'import json,sys; print(json.load(open("vcpkg.json"))["vcpkg-configuration"]["default-registry"]["baseline"])' 2>/dev/null || true)}"
 VCPKG_COMMIT="${VCPKG_COMMIT:-9e593bb18ea69cc5095e012465dcd675a822ed0d}"
 
-APP_DEBUG="$ROOT/flutter/build/macos/Build/Products/Debug/RustDesk.app"
+APP_DEBUG="$ROOT/flutter/build/macos/Build/Products/Debug/LinkDesk.app"
 PROD_DEBUG="$ROOT/flutter/build/macos/Build/Products/Debug"
 
 CLEAN=0
@@ -54,6 +54,9 @@ for arg in "$@"; do
     -h|--help)
       cat <<'EOF'
 用法: ./start-macos.sh [--clean] [--no-run]
+
+可通过 LINKDESK_CONFIG_DIR 指定独立客户端数据目录，用于测试多个客户端实例：
+  LINKDESK_CONFIG_DIR=/tmp/linkdesk-client-a ./start-macos.sh
 
   --clean   清掉 Flutter/Xcode Debug 产物和 Rust debug 目标，再完整重编
   --no-run  只构建，不打开应用
@@ -231,77 +234,6 @@ ensure_flutter() {
   flutter config --enable-macos-desktop >/dev/null
 }
 
-prepare_flutter_compat() {
-  [[ "$HOST_ARCH" == "arm64" && "$FLUTTER_VERSION" == "3.44.9" ]] || return 0
-  log "临时应用 Flutter $FLUTTER_VERSION 兼容调整"
-  FLUTTER_COMPAT_BACKUP="$(mktemp -d "${TMPDIR:-/tmp}/rustdesk-flutter-compat.XXXXXX")"
-  cp "$ROOT/flutter/lib/common.dart" "$FLUTTER_COMPAT_BACKUP/common.dart"
-  cp "$ROOT/flutter/pubspec.yaml" "$FLUTTER_COMPAT_BACKUP/pubspec.yaml"
-  cp "$ROOT/flutter/macos/Podfile" "$FLUTTER_COMPAT_BACKUP/Podfile"
-  cp "$ROOT/flutter/macos/Runner.xcodeproj/project.pbxproj" "$FLUTTER_COMPAT_BACKUP/project.pbxproj"
-  cp "$ROOT/flutter/macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme" "$FLUTTER_COMPAT_BACKUP/Runner.xcscheme"
-  cp "$ROOT/flutter/pubspec.lock" "$FLUTTER_COMPAT_BACKUP/pubspec.lock"
-  cp "$ROOT/flutter/macos/Podfile.lock" "$FLUTTER_COMPAT_BACKUP/Podfile.lock"
-  trap restore_flutter_compat EXIT
-
-  "$PYTHON3" - "$ROOT/flutter/lib/common.dart" "$ROOT/flutter/pubspec.yaml" "$ROOT/flutter/macos/Podfile" "$ROOT/flutter/macos/Runner.xcodeproj/project.pbxproj" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-common, pubspec, podfile, project = map(Path, sys.argv[1:])
-common_text = common.read_text()
-pubspec_text = pubspec.read_text()
-for old, new in (("dialogTheme: DialogTheme(", "dialogTheme: DialogThemeData("), ("tabBarTheme: const TabBarTheme(", "tabBarTheme: const TabBarThemeData(")):
-    old_count = common_text.count(old)
-    new_count = common_text.count(new)
-    if old_count == 2 and new_count == 0:
-        common_text = common_text.replace(old, new)
-    elif old_count == 0 and new_count == 2:
-        pass
-    else:
-        raise SystemExit(f"Flutter compatibility anchor changed: {old}")
-marker = "dialogTheme: DialogThemeData("
-light = marker + "\n      backgroundColor: Colors.white,"
-dark = marker + "\n      backgroundColor: Color(0xFF18191E),"
-first = common_text.find(marker)
-second = common_text.find(marker, first + 1)
-common_text = common_text[:first] + light + common_text[first + len(marker):]
-second += len(light) - len(marker)
-common_text = common_text[:second] + dark + common_text[second + len(marker):]
-for old, new in (("extended_text: 14.0.0", "extended_text: 15.0.2"), ("google_fonts: ^6.2.1", "google_fonts: ^8.1.0")):
-    if pubspec_text.count(old) != 1:
-        raise SystemExit(f"Flutter compatibility anchor changed: {old}")
-    pubspec_text = pubspec_text.replace(old, new)
-common.write_text(common_text)
-pubspec.write_text(pubspec_text)
-
-pod_text = re.sub(r"platform :osx, '[0-9.]+'", "platform :osx, '12.0'", podfile.read_text(), count=1)
-anchor = "    flutter_additional_macos_build_settings(target)\n"
-override = anchor + "    target.build_configurations.each do |config|\n      config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '12.0'\n    end\n"
-if pod_text.count(anchor) != 1:
-    raise SystemExit("CocoaPods post_install anchor changed")
-podfile.write_text(pod_text.replace(anchor, override))
-project.write_text(re.sub(r"MACOSX_DEPLOYMENT_TARGET = [0-9.]+;", "MACOSX_DEPLOYMENT_TARGET = 12.0;", project.read_text()))
-PY
-  flutter config --no-enable-swift-package-manager >/dev/null
-}
-
-restore_flutter_compat() {
-  local status=$?
-  trap - EXIT
-  set +e
-  cp "$FLUTTER_COMPAT_BACKUP/common.dart" "$ROOT/flutter/lib/common.dart"
-  cp "$FLUTTER_COMPAT_BACKUP/pubspec.yaml" "$ROOT/flutter/pubspec.yaml"
-  cp "$FLUTTER_COMPAT_BACKUP/Podfile" "$ROOT/flutter/macos/Podfile"
-  cp "$FLUTTER_COMPAT_BACKUP/project.pbxproj" "$ROOT/flutter/macos/Runner.xcodeproj/project.pbxproj"
-  cp "$FLUTTER_COMPAT_BACKUP/Runner.xcscheme" "$ROOT/flutter/macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme"
-  cp "$FLUTTER_COMPAT_BACKUP/pubspec.lock" "$ROOT/flutter/pubspec.lock"
-  cp "$FLUTTER_COMPAT_BACKUP/Podfile.lock" "$ROOT/flutter/macos/Podfile.lock"
-  rm -rf "$FLUTTER_COMPAT_BACKUP"
-  exit "$status"
-}
-
 ensure_nasm() {
   if have nasm && nasm_ok "$(command -v nasm)"; then
     return
@@ -420,8 +352,8 @@ ensure_macos_resources() {
 clear_stale_outputs() {
   log "清掉会让旧界面残留的产物"
   rm -rf "$APP_DEBUG"
-  rm -rf "$PROD_DEBUG/RustDesk.swiftmodule"
-  pkill -f "$APP_DEBUG/Contents/MacOS/RustDesk" 2>/dev/null || true
+  rm -rf "$PROD_DEBUG/LinkDesk.swiftmodule"
+  pkill -f "$APP_DEBUG/Contents/MacOS/LinkDesk" 2>/dev/null || true
   if [[ "$CLEAN" -eq 1 ]]; then
     log "--clean：清掉 Flutter 构建缓存和 Rust debug 目标"
     (cd "$ROOT/flutter" && flutter clean) || true
@@ -450,7 +382,6 @@ ensure_macos_resources
 ensure_rust
 ensure_flutter
 log "使用 Flutter: $FLUTTER_SDK ($FLUTTER_VERSION)"
-prepare_flutter_compat
 ensure_nasm
 ensure_vcpkg
 ensure_bridge
@@ -498,10 +429,10 @@ if [[ "$NO_RUN" -eq 1 ]]; then
   exit 0
 fi
 
-if [[ ! -x "$APP_DEBUG/Contents/MacOS/RustDesk" ]]; then
+if [[ ! -x "$APP_DEBUG/Contents/MacOS/LinkDesk" ]]; then
   echo "构建失败，没有生成 $APP_DEBUG" >&2
   exit 1
 fi
 
-log "启动 RustDesk"
+log "启动 LinkDesk"
 open "$APP_DEBUG"

@@ -60,3 +60,11 @@ flutter/web/
 /third_party/libdrmtap/
 # Local git worktrees
 .worktrees/
+
+# LinkDesk local runtime data
+.instances/
+db_v2.sqlite3
+db_v2.sqlite3-shm
+db_v2.sqlite3-wal
+id_ed25519
+id_ed25519.pub

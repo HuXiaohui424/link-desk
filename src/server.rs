@@ -484,7 +484,6 @@ impl Server {
             }
         }
         #[cfg(target_os = "macos")]
-        self.update_enable_retina();
         self.connections.insert(conn.id(), conn);
     }
 
@@ -493,8 +492,6 @@ impl Server {
             s.on_unsubscribe(conn.id());
         }
         self.connections.remove(&conn.id());
-        #[cfg(target_os = "macos")]
-        self.update_enable_retina();
     }
 
     pub fn close_connections(&mut self) {
@@ -527,8 +524,6 @@ impl Server {
             } else {
                 s.on_unsubscribe(conn.id());
             }
-            #[cfg(target_os = "macos")]
-            self.update_enable_retina();
         }
     }
 
@@ -599,16 +594,6 @@ impl Server {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    fn update_enable_retina(&self) {
-        let mut video_service_count = 0;
-        for (name, service) in self.services.iter() {
-            if Self::is_video_service_name(&name) && service.ok() {
-                video_service_count += 1;
-            }
-        }
-        *scrap::quartz::ENABLE_RETINA.lock().unwrap() = video_service_count < 2;
-    }
 }
 
 impl Drop for Server {

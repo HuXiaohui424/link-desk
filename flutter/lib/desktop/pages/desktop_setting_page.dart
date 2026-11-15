@@ -35,6 +35,7 @@ const double _kListViewBottomMargin = 15;
 const double _kTitleFontSize = 20;
 const double _kContentFontSize = 15;
 const Color _accentColor = MyTheme.accent;
+
 enum SettingsTabKey {
   general,
   safety,
@@ -81,9 +82,7 @@ class DesktopSettingPage extends StatefulWidget {
 }
 
 class _DesktopSettingPageState extends State<DesktopSettingPage>
-    with
-        AutomaticKeepAliveClientMixin,
-        WidgetsBindingObserver {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   @override
   bool get wantKeepAlive => true;
 
@@ -91,8 +90,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   final RxBool _canBeBlocked = false.obs;
   Timer? _videoConnTimer;
 
-  _DesktopSettingPageState(SettingsTabKey initialTabkey) {
-  }
+  _DesktopSettingPageState(SettingsTabKey initialTabkey) {}
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -209,7 +207,6 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
           const Divider(height: 1),
         ],
       );
-
 }
 
 //#region pages
@@ -319,7 +316,10 @@ class _GeneralState extends State<_General> {
     final incomingOnly = bind.isIncomingOnly();
     final outgoingOnly = bind.isOutgoingOnly();
     final showAutoUpdate = (isWindows && bind.mainIsInstalled()) ||
-    (isMacOS && bind.mainIsInstalled() && bind.mainIsInstalledDaemon(prompt: false) && !bind.isCustomClient());
+        (isMacOS &&
+            bind.mainIsInstalled() &&
+            bind.mainIsInstalledDaemon(prompt: false) &&
+            !bind.isCustomClient());
     final children = <Widget>[
       if (!isWeb && !incomingOnly)
         _OptionCheckBox(context, 'Confirm before closing multiple tabs',
@@ -819,20 +819,19 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(
-          children: [
-            _lock(locked, 'Unlock Security Settings', () {
-              locked = false;
-              setState(() => {});
-            }),
-            preventMouseKeyBuilder(
-              block: locked,
-              child: Column(children: [
-                password(context),
-                _Card(title: '2FA', children: [tfa()]),
-              ]),
-            ),
-          ]).marginOnly(bottom: _kListViewBottomMargin);
+    return Column(children: [
+      _lock(locked, 'Unlock Security Settings', () {
+        locked = false;
+        setState(() => {});
+      }),
+      preventMouseKeyBuilder(
+        block: locked,
+        child: Column(children: [
+          password(context),
+          _Card(title: '2FA', children: [tfa()]),
+        ]),
+      ),
+    ]).marginOnly(bottom: _kListViewBottomMargin);
   }
 
   Widget tfa() {
@@ -931,15 +930,16 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
               child: _OptionCheckBox(context, "Enable trusted devices",
                   kOptionEnableTrustedDevices,
                   optSetter: (key, value) async {
-                try {
-                  await mainSetBoolOption(key, value);
-                } catch (error) {
-                  showToast(error.toString());
-                }
-              },
-                  enabled: !locked, update: (v) {
-                setState(() {});
-              }),
+                    try {
+                      await mainSetBoolOption(key, value);
+                    } catch (error) {
+                      showToast(error.toString());
+                    }
+                  },
+                  enabled: !locked,
+                  update: (v) {
+                    setState(() {});
+                  }),
             ),
           ),
           if (mainGetBoolOptionSync(kOptionEnableTrustedDevices))
@@ -1799,8 +1799,7 @@ class _AccountState extends State<_Account> {
   Widget linkDeskAction() {
     final auth = Get.find<LinkDeskAuthService>();
     return Obx(() => _Button(
-        auth.isSignedIn ? 'LinkDesk Logout' : 'LinkDesk Login',
-        () async {
+            auth.isSignedIn ? 'LinkDesk Logout' : 'LinkDesk Login', () async {
           if (auth.isSignedIn) {
             await auth.logout();
           } else {
@@ -2110,73 +2109,54 @@ class _AboutState extends State<_About> {
       final buildDate = data['buildDate'].toString();
       final fingerprint = data['fingerprint'].toString();
       final myId = data['myId'].toString();
-      const linkStyle = TextStyle(decoration: TextDecoration.underline);
-      return _Card(title: translate('About RustDesk'), children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(
-                height: 8.0,
-              ),
+      return _Card(title: 'About LinkDesk', children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(
+              height: 8.0,
+            ),
+            SelectionArea(
+                child: Text('${translate('Version')}: $version')
+                    .marginSymmetric(vertical: 4.0)),
+            SelectionArea(
+                child: Text('${translate('Build Date')}: $buildDate')
+                    .marginSymmetric(vertical: 4.0)),
+            if (!isWeb)
               SelectionArea(
-                  child: Text('${translate('Version')}: $version')
+                  child: Text('${translate('Fingerprint')}: $fingerprint')
                       .marginSymmetric(vertical: 4.0)),
-              SelectionArea(
-                  child: Text('${translate('Build Date')}: $buildDate')
-                      .marginSymmetric(vertical: 4.0)),
-              if (!isWeb)
-                SelectionArea(
-                    child: Text('${translate('Fingerprint')}: $fingerprint')
-                        .marginSymmetric(vertical: 4.0)),
-              SelectionArea(
-                  child: Text('${translate('ID')}: $myId')
-                      .marginSymmetric(vertical: 4.0)),
-              InkWell(
-                  onTap: () {
-                    launchUrlString('https://rustdesk.com/privacy.html');
-                  },
-                  child: Text(
-                    translate('Privacy Statement'),
-                    style: linkStyle,
-                  ).marginSymmetric(vertical: 4.0)),
-              InkWell(
-                  onTap: () {
-                    launchUrlString('https://rustdesk.com');
-                  },
-                  child: Text(
-                    translate('Website'),
-                    style: linkStyle,
-                  ).marginSymmetric(vertical: 4.0)),
-              Container(
-                decoration: const BoxDecoration(color: MyTheme.accent),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
-                child: SelectionArea(
-                    child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\n$license',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          Text(
-                            translate('Slogan_tip'),
-                            style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white),
-                          )
-                        ],
-                      ),
+            SelectionArea(
+                child: Text('${translate('ID')}: $myId')
+                    .marginSymmetric(vertical: 4.0)),
+            Container(
+              decoration: const BoxDecoration(color: MyTheme.accent),
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+              child: SelectionArea(
+                  child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'LinkDesk\n$license',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        Text(
+                          translate('Slogan_tip'),
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800, color: Colors.white),
+                        )
+                      ],
                     ),
-                  ],
-                )),
-              ).marginSymmetric(vertical: 4.0)
-            ],
-          ).marginOnly(left: _kContentHMargin)
-        ]);
+                  ),
+                ],
+              )),
+            ).marginSymmetric(vertical: 4.0)
+          ],
+        ).marginOnly(left: _kContentHMargin)
+      ]);
     });
   }
 }
@@ -2361,7 +2341,7 @@ class _WaylandCardState extends State<WaylandCard> {
   //   busctl --user call org.freedesktop.impl.portal.PermissionStore \
   //   /org/freedesktop/impl/portal/PermissionStore org.freedesktop.impl.portal.PermissionStore \
   //   DeletePermission sss "gnome" "shortcuts-inhibitor" "<desktop-id>"
-  // On a native install this is typically "rustdesk.desktop"; on Flatpak it is usually
+  // On a native install this is typically "linkdesk.desktop"; on Flatpak it is usually
   // the exported desktop ID derived from the Flatpak app-id (e.g. "com.rustdesk.RustDesk.desktop").
   //
   // We may add it back in the future if needed.

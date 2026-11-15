@@ -11,10 +11,14 @@ use std::{
 
 use uuid::Uuid;
 
+use base::config::keys::*;
 use hbb_common::{
     allow_err,
     anyhow::{self, bail},
-    config::{self, option2bool, use_ws, Config, CONNECT_TIMEOUT, REG_INTERVAL, RENDEZVOUS_PORT},
+    config::{
+        self, option2bool, use_ws, Config, LocalConfig, CONNECT_TIMEOUT, REG_INTERVAL,
+        RENDEZVOUS_PORT,
+    },
     futures::future::join_all,
     log,
     protobuf::Message as _,
@@ -30,7 +34,6 @@ use hbb_common::{
     webrtc::WebRTCStream,
     AddrMangle, IntoTargetAddr, ResultType, Stream, TargetAddr,
 };
-use base::config::keys::*;
 
 use crate::{
     check_port,
@@ -948,7 +951,9 @@ impl RendezvousMediator {
         let stream_for_remote_ice = stream.clone();
         tokio::spawn(async move {
             while let Some(candidate) = remote_ice_rx.recv().await {
-                if let Err(err) = stream_for_remote_ice.add_remote_ice_candidate(&candidate).await
+                if let Err(err) = stream_for_remote_ice
+                    .add_remote_ice_candidate(&candidate)
+                    .await
                 {
                     if let Some(n) = REJECTED_REMOTE_ICE_LOG.due() {
                         log::warn!(
@@ -1312,6 +1317,7 @@ impl RendezvousMediator {
             uuid: uuid.into(),
             pk: pk.into(),
             no_register_device: Config::no_register_device(),
+            link_desk_registration_secret: LocalConfig::get_option("link-desk-registration-secret"),
             ..Default::default()
         });
         socket.send(&msg_out).await?;
@@ -1358,6 +1364,7 @@ impl RendezvousMediator {
         msg_out.set_register_peer(RegisterPeer {
             id,
             serial,
+            link_desk_registration_secret: LocalConfig::get_option("link-desk-registration-secret"),
             ..Default::default()
         });
         socket.send(&msg_out).await?;
@@ -1779,8 +1786,8 @@ impl Drop for CheckIfResendPk {
 #[cfg(test)]
 mod tests {
     use super::{
-        connection_meta, mpsc, tokio, wait_for_retry, AnswererSlot, Duration, IceRoute,
-        Instant, IntoTargetAddr, Ordering, PunchHoleSent, RendezvousMediator, RendezvousMessage,
+        connection_meta, mpsc, tokio, wait_for_retry, AnswererSlot, Duration, IceRoute, Instant,
+        IntoTargetAddr, Ordering, PunchHoleSent, RendezvousMediator, RendezvousMessage,
         CONNECT_TIMEOUT, MANUAL_RESTARTED, MANUAL_RESTART_NOTIFY, MAX_WEBRTC_ANSWERERS,
         SHOULD_EXIT, TCP_PUNCHES, UDP_PUNCHES,
     };

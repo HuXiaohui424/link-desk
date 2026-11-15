@@ -22,6 +22,8 @@ class DesktopTabPage extends StatefulWidget {
 
 class _DesktopTabPageState extends State<DesktopTabPage>
     with WindowListener {
+  bool _closing = false;
+
   @override
   void initState() {
     super.initState();
@@ -36,6 +38,10 @@ class _DesktopTabPageState extends State<DesktopTabPage>
 
   @override
   void onWindowClose() async {
+    if (_closing) {
+      return;
+    }
+    _closing = true;
     await windowManager.setPreventClose(false);
     await windowManager.close();
   }

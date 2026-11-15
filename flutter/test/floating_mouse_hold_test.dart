@@ -38,10 +38,9 @@ class _Cursor extends CursorModel {
 void main() {
   setUp(() {
     isSpecialHoldDragActive = false;
-    js.context['isMobile'] = js.allowInterop(() => true);
-    js.context['getByName'] =
-        js.allowInterop((String name, [String? key]) => '');
-    js.context['setByName'] = js.allowInterop((String name, dynamic value) {});
+    js.context['isMobile'] = () => true;
+    js.context['getByName'] = (String name, [String? key]) => '';
+    js.context['setByName'] = (String name, dynamic value) {};
   });
   tearDown(() {
     isSpecialHoldDragActive = false;
