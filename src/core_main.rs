@@ -50,6 +50,8 @@ pub fn core_main() -> Option<CoreMainAction> {
         let server = server.trim().to_owned();
         if !server.is_empty() {
             crate::ui_interface::set_option("custom-rendezvous-server".into(), server);
+            crate::rendezvous_mediator::RendezvousMediator::restart();
+            crate::common::test_rendezvous_server();
         }
     }
     crate::load_custom_client();
