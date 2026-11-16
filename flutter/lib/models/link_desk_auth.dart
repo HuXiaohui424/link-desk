@@ -131,7 +131,7 @@ class LinkDeskAuthService extends GetxService {
       return configured;
     }
     final environment = bind.mainGetEnv(key: 'LINKDESK_SERVER_URL').trim();
-    return environment.isEmpty ? 'http://127.0.0.1:22119' : environment;
+    return environment.isEmpty ? 'http://127.0.0.1:22120' : environment;
   }
 
   String get _accessToken =>
