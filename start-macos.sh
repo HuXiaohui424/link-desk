@@ -33,12 +33,8 @@ read_workflow_value() {
 
 RUST_TOOLCHAIN="${RUST_TOOLCHAIN:-$(read_workflow_value MAC_RUST_VERSION)}"
 RUST_TOOLCHAIN="${RUST_TOOLCHAIN:-1.81}"
-if [[ "$HOST_ARCH" == "arm64" ]]; then
-  FLUTTER_VERSION="$(read_workflow_value FLUTTER_MACOS_ARM_VERSION)"
-else
-  FLUTTER_VERSION="$(read_workflow_value FLUTTER_VERSION)"
-fi
-FLUTTER_VERSION="${FLUTTER_VERSION:-3.24.5}"
+FLUTTER_VERSION="$(read_workflow_value FLUTTER_MACOS_ARM_VERSION)"
+FLUTTER_VERSION="${FLUTTER_VERSION:-3.44.9}"
 VCPKG_COMMIT="${VCPKG_COMMIT:-$(python3 -c 'import json,sys; print(json.load(open("vcpkg.json"))["vcpkg-configuration"]["default-registry"]["baseline"])' 2>/dev/null || true)}"
 VCPKG_COMMIT="${VCPKG_COMMIT:-9e593bb18ea69cc5095e012465dcd675a822ed0d}"
 
@@ -297,10 +293,7 @@ ensure_bridge() {
     echo "缺少 Flutter/Rust 桥接文件，且本机没有 gh，无法从 CI 下载。" >&2
     exit 1
   fi
-  local artifact="bridge-artifact"
-  if [[ "$HOST_ARCH" == "arm64" ]]; then
-    artifact="bridge-artifact-flutter-3.44"
-  fi
+  local artifact="bridge-artifact-flutter-3.44"
   log "下载 Flutter/Rust 桥接文件 (${artifact})"
   local sha artifact_id artifact_sha local_bridge_sha archive
   sha="$(git -C "$ROOT" rev-parse HEAD)"
