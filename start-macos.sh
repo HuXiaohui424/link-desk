@@ -301,10 +301,10 @@ ensure_bridge() {
   if [[ "$HOST_ARCH" == "arm64" ]]; then
     artifact="bridge-artifact-flutter-3.44"
   fi
-  log "下载 Flutter/Rust 桥接文件 ($artifact)"
+  log "下载 Flutter/Rust 桥接文件 (${artifact})"
   local sha artifact_id artifact_sha local_bridge_sha archive
   sha="$(git -C "$ROOT" rev-parse HEAD)"
-  artifact_id="$(gh api "repos/{owner}/{repo}/actions/artifacts?name=$artifact&per_page=100" \
+  artifact_id="$(gh api "repos/{owner}/{repo}/actions/artifacts?name=${artifact}&per_page=100" \
     --jq ".artifacts[] | select(.expired == false and .workflow_run.head_sha == \"$sha\") | .id" | head -n 1)"
 
   if [[ -z "$artifact_id" ]]; then
@@ -315,12 +315,12 @@ ensure_bridge() {
         break
       fi
       artifact_id=""
-    done < <(gh api "repos/rustdesk/rustdesk/actions/artifacts?name=$artifact&per_page=100" \
+    done < <(gh api "repos/rustdesk/rustdesk/actions/artifacts?name=${artifact}&per_page=100" \
       --jq '.artifacts[] | select(.expired == false) | [.id, .workflow_run.head_sha] | @tsv')
   fi
 
   if [[ -z "$artifact_id" ]]; then
-    echo "当前源码没有可用的 $artifact，无法准备 Flutter/Rust 桥接文件。" >&2
+    echo "当前源码没有可用的 ${artifact}，无法准备 Flutter/Rust 桥接文件。" >&2
     exit 1
   fi
 
