@@ -395,7 +395,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return Obx(() {
       final linkDeskId = auth.devices
           .where((device) => device.deviceId == auth.deviceId.value)
-          .map((device) => device.numericId)
+          .map((device) => device.deviceId)
           .firstWhere((id) => id.isNotEmpty, orElse: () => '');
       final displayId =
           linkDeskId.isNotEmpty ? linkDeskId : model.serverId.text;

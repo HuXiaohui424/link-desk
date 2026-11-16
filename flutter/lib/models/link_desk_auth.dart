@@ -66,14 +66,12 @@ class LinkDeskUser {
 
 class LinkDeskDevice {
   final String deviceId;
-  final String numericId;
   final String name;
   final bool online;
   final DateTime? lastSeenAt;
 
   const LinkDeskDevice({
     required this.deviceId,
-    required this.numericId,
     required this.name,
     required this.online,
     required this.lastSeenAt,
@@ -82,7 +80,6 @@ class LinkDeskDevice {
   factory LinkDeskDevice.fromJson(Map<String, dynamic> json) {
     return LinkDeskDevice(
       deviceId: '${json['device_id'] ?? ''}',
-      numericId: '${json['numeric_id'] ?? ''}',
       name: '${json['name'] ?? ''}',
       online: json['online'] == true,
       lastSeenAt: DateTime.tryParse('${json['last_seen_at'] ?? ''}'),
@@ -317,7 +314,6 @@ class LinkDeskAuthService extends GetxService {
     final data = _decode(response);
     final boundDevice = LinkDeskDevice(
       deviceId: '${data['device_id'] ?? ''}',
-      numericId: '${data['numeric_id'] ?? ''}',
       name: name?.trim().isNotEmpty == true ? name!.trim() : 'LinkDesk device',
       online: false,
       lastSeenAt: null,
